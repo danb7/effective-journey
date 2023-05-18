@@ -143,9 +143,10 @@ optimizer = optim.Adam(model.parameters())
 nepochs = 5
 
 train_losses, val_losses, train_accuracy, val_accuracy = train(model, optimizer, criterion, nepochs, train_data_loader, dev_data_loader)
-# plot_results(train_losses, val_losses, train_accuracy, val_accuracy)
+plot_results(train_losses, val_losses, train_accuracy, val_accuracy)
 
 print("___________________________________POS__________________________________________________")
+vocab_pos,vocab_labels_pos,train_data_pos,dev_data_pos = create_data('pos/train')
 
 
 train_dataset_pos = Tagging_Dataset(data_to_window(vocab_pos, vocab_labels_pos, train_data_pos))
