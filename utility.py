@@ -1,3 +1,4 @@
+import numpy as np
 from matplotlib import pyplot as plt
 
 
@@ -20,6 +21,23 @@ def read_data(fname, splitter):
             sentence = ""
             labels = ""
     return sentence_list
+
+
+def use_pretrained(vocab, embeddings):
+    with open(vocab, encoding="utf8") as f:
+        lines = f.readlines()
+    words = []
+    for line in lines:
+        words.append(line.strip())
+    pre_vocab = Vocabulary()
+    pre_vocab.build_vocabulary(words[1:])
+    vecs = np.loadtxt(embeddings)
+    sos = np.random.randn(vecs.shape[1])
+    eos = np.random.randn(vecs.shape[1])
+    new_vecs = np.insert(vecs, [1], [sos], axis=0)
+    new_vecs = np.insert(new_vecs, [2], [eos], axis=0)
+    return pre_vocab, new_vecs
+
 
 class Vocabulary:
     def __init__(self, is_labels=False):
@@ -54,16 +72,11 @@ class Vocabulary:
         # limit vocab by removing low freq words
         frequencies = {k: v for k, v in frequencies.items() if v > self.freq_threshold}
 
-        # limit vocab to the max_size specified
-        # frequencies = dict(
-        #     sorted(frequencies.items(), key=lambda x: -x[1]))
-
         # create vocab
         for word in frequencies.keys():
             self.stoi[word] = idx
             self.itos[idx] = word
             idx += 1
-
 
     def numericalize(self, text):
         # tokenize text
@@ -76,24 +89,24 @@ class Vocabulary:
                 numericalized_text.append(self.stoi['<UNK>'])
 
         return numericalized_text
-    
-    # TODO: check this method
+
     def to_text(self, numericalized_text):
         return self.itos[numericalized_text.item()] if self.is_labels else self.itos[numericalized_text[2].item()]
+
 
 def sentence_to_windows(vocab, vocab_labels, sentence, labels=None, window_size=5):
     numerized_senetnce = [vocab.stoi["<SOS>"], vocab.stoi["<SOS>"]]
     numerized_senetnce += vocab.numericalize(sentence)
-    numerized_senetnce.extend([vocab.stoi["<EOS>"]]*2)
+    numerized_senetnce.extend([vocab.stoi["<EOS>"]] * 2)
     windows_sentence = [(numerized_senetnce[i - 2], numerized_senetnce[i - 1], numerized_senetnce[i],
-                        numerized_senetnce[i + 1], numerized_senetnce[i + 2]) for i in
+                         numerized_senetnce[i + 1], numerized_senetnce[i + 2]) for i in
                         range(2, len(numerized_senetnce) - 2)]
     if labels:
         numerized_label = vocab_labels.numericalize(labels)
         return windows_sentence, numerized_label
     else:
         return windows_sentence
-    
+
 
 def data_to_window(vocab, vocab_labels, data, window_size=5):
     windows_sentences = []
@@ -105,12 +118,13 @@ def data_to_window(vocab, vocab_labels, data, window_size=5):
         windows_labels.extend(numerized_tags)
     return windows_sentences, windows_labels
 
+
 def plot_results(train_loss, val_loss, train_acc, val_acc):
     """
     This function takes lists of values and creates side-by-side graphs to show training and validation performance
     """
 
-    train_loss = [loss.detach() for loss in train_loss ]
+    train_loss = [loss.detach() for loss in train_loss]
     fig, ax = plt.subplots(1, 2, figsize=(15, 5))
     print(type(ax))
     ax[0].plot(
@@ -133,11 +147,8 @@ def plot_results(train_loss, val_loss, train_acc, val_acc):
     ax[1].legend()
     plt.show()
 
-################NER################
 
-
-
-def create_data(fname,splitter): #TODO: might be easier this way to do the pre-trained.
+def create_data(fname, splitter):  # TODO: might be easier this way to do the pre-trained.
     train_data = read_data(fname, splitter)
     sentences, labels = zip(*train_data)
     vocab = Vocabulary()
@@ -146,9 +157,10 @@ def create_data(fname,splitter): #TODO: might be easier this way to do the pre-t
     vocab_labels.build_vocabulary(labels)
     dev_data = read_data('ner/dev', '\t')
     dev_sentences, dev_labels = zip(*dev_data)
-    return vocab, sentences, labels,  dev_sentences, dev_labels
+    return vocab, sentences, labels, dev_sentences, dev_labels
 
 
+################NER################
 train_data = read_data('ner/train', '\t')
 sentences, labels = zip(*train_data)
 vocab = Vocabulary()
@@ -157,6 +169,7 @@ vocab.build_vocabulary(sentences)
 vocab_labels.build_vocabulary(labels)
 dev_data = read_data('ner/dev', '\t')
 dev_sentences, dev_labels = zip(*dev_data)
+
 ################POS################
 train_data_pos = read_data('pos/train', ' ')
 sentences_pos, labels_pos = zip(*train_data_pos)

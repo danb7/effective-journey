@@ -10,6 +10,7 @@ import torch.nn.functional as F
 
 from utility import *
 
+
 class Tagging_Dataset(Dataset):
     def __init__(self, data):
         self.windows, self.tags = data
@@ -21,9 +22,11 @@ class Tagging_Dataset(Dataset):
         window = self.windows[idx]
         tag = self.tags[idx]
         return torch.tensor(window), torch.tensor(tag)
-    
+
+
 class tagger(nn.Module):
-    def __init__(self, vocab_size, embedding_dim, hidden_layer, target_size, dropout_p, pre_trained_embeddings=None, WINDOW_SIZE=5):
+    def __init__(self, vocab_size, embedding_dim, hidden_layer, target_size, dropout_p, pre_trained_embeddings=None,
+                 WINDOW_SIZE=5):
         super().__init__()
         self.embedding_dim = embedding_dim
         self.word_embeddings = nn.Embedding(vocab_size, embedding_dim)
@@ -33,13 +36,16 @@ class tagger(nn.Module):
         self.dropout1 = nn.Dropout(p=dropout_p)
         # part 3 pretrained vocab
         self.WINDOW_SIZE = WINDOW_SIZE
-        #init weights
+        # init weights
         torch.manual_seed(42)
-        nn.init.xavier_uniform_(self.word_embeddings.weight)
-        nn.init.xavier_uniform_(self.fc1.weight)
-        nn.init.constant_(self.fc1.bias, 0)
-        nn.init.xavier_uniform_(self.fc2.weight)
-        nn.init.constant_(self.fc2.bias, 0)
+        if pre_trained_embeddings is not None:
+            self.word_embeddings.weight.data.copy_(torch.from_numpy(pre_trained_embeddings))
+        else:
+            nn.init.xavier_uniform_(self.word_embeddings.weight)
+            nn.init.xavier_uniform_(self.fc1.weight)
+            nn.init.constant_(self.fc1.bias, 0)
+            nn.init.xavier_uniform_(self.fc2.weight)
+            nn.init.constant_(self.fc2.bias, 0)
 
     def forward(self, sentence):
         x = self.word_embeddings(sentence).view(-1, self.embedding_dim * self.WINDOW_SIZE)
@@ -49,20 +55,21 @@ class tagger(nn.Module):
         x = self.fc2(x)
         x = F.log_softmax(x, dim=-1)
         return x
-    
+
+
 def accuracy(pred, tags, mission='NER'):
     corrects = 0
     total = len(pred)
     if mission.upper() == 'NER':
         for p, o in zip(pred, tags):
-            if (p==o):
-                if (o==vocab_labels.stoi['O']):
+            if (p == o):
+                if (o == vocab_labels.stoi['O']):
                     total -= 1
                     continue
                 else:
                     corrects += 1
     else:
-        corrects = (pred==tags).sum()
+        corrects = (pred == tags).sum()
 
     return corrects, total
 
@@ -83,7 +90,8 @@ def epoch_train(model, optimizer, criterion, train_loader, val_loader, mission='
         running_corrects += batch_corrects
         running_total += batch_total
 
-    return running_loss/len(train_loader), running_corrects/running_total
+    return running_loss / len(train_loader), running_corrects / running_total
+
 
 def evaluate(model, criterion, val_loader, mission='NER'):
     running_loss = 0
@@ -100,7 +108,7 @@ def evaluate(model, criterion, val_loader, mission='NER'):
             running_corrects += batch_corrects
             running_total += batch_total
 
-        return running_loss/len(val_loader), running_corrects/running_total
+        return running_loss / len(val_loader), running_corrects / running_total
 
 
 def train(model, optimizer, criterion, nepochs, train_loader, val_loader, mission='NER'):
@@ -123,42 +131,48 @@ def train(model, optimizer, criterion, nepochs, train_loader, val_loader, missio
     return train_losses, val_losses, train_accs, val_accs
 
 
-
 print("___________________________________NER__________________________________________________")
+use_pre_trained = len(sys.argv) > 1
+pre_embedding = None
+if use_pre_trained:
+    vocab, pre_embedding = use_pretrained('vocab.txt', 'wordVectors.txt')
+    train_dataset = Tagging_Dataset(data_to_window(vocab, vocab_labels, train_data))
+else:
+    train_dataset = Tagging_Dataset(data_to_window(vocab, vocab_labels, train_data))
 
-train_dataset = Tagging_Dataset(data_to_window(vocab, vocab_labels, train_data))
 train_data_loader = DataLoader(train_dataset,
-                                batch_size=128, shuffle=True)
-
-
+                               batch_size=128, shuffle=True)
 
 dev_dataset = Tagging_Dataset(data_to_window(vocab, vocab_labels, dev_data))
 dev_data_loader = DataLoader(dev_dataset,
-                                batch_size=128, shuffle=True)
+                             batch_size=128, shuffle=True)
 
-
-model = tagger(len(vocab), 50, 128, len(vocab_labels), 0.4)
+model = tagger(len(vocab), 50, 128, len(vocab_labels), 0.4, pre_trained_embeddings=pre_embedding)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters())
-nepochs = 5
+nepochs = 15
 
-train_losses, val_losses, train_accuracy, val_accuracy = train(model, optimizer, criterion, nepochs, train_data_loader, dev_data_loader)
+train_losses, val_losses, train_accuracy, val_accuracy = train(model, optimizer, criterion, nepochs, train_data_loader,
+                                                               dev_data_loader)
 plot_results(train_losses, val_losses, train_accuracy, val_accuracy)
 
 print("___________________________________POS__________________________________________________")
-vocab_pos,vocab_labels_pos,train_data_pos,dev_data_pos = create_data('pos/train')
+if use_pre_trained:
+    vocab, pre_embedding = use_pretrained('vocab.txt', 'wordVectors.txt')
+    train_dataset_pos = Tagging_Dataset(data_to_window(vocab_pos, vocab_labels_pos, train_data_pos))
+else:
+    train_dataset_pos = Tagging_Dataset(data_to_window(vocab_pos, vocab_labels_pos, train_data_pos))
 
-
-train_dataset_pos = Tagging_Dataset(data_to_window(vocab_pos, vocab_labels_pos, train_data_pos))
 train_data_loader_pos = DataLoader(train_dataset_pos,
-                                batch_size=128, shuffle=True)
+                                   batch_size=128, shuffle=True)
 dev_dataset_pos = Tagging_Dataset(data_to_window(vocab_pos, vocab_labels_pos, dev_data_pos))
 dev_data_loader_pos = DataLoader(dev_dataset_pos,
-                                batch_size=128, shuffle=True)
+                                 batch_size=128, shuffle=True)
 
-model_pos = tagger(len(vocab_pos), 50, 128, len(vocab_labels_pos), 0.4)
+model_pos = tagger(len(vocab_pos), 50, 128, len(vocab_labels_pos), 0.4, pre_trained_embeddings=pre_embedding)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model_pos.parameters())
-nepochs = 5
+nepochs = 15
 
-train_losses, val_losses, train_accuracy, val_accuracy = train(model_pos, optimizer, criterion, nepochs, train_data_loader_pos, dev_data_loader_pos)
+train_losses, val_losses, train_accuracy, val_accuracy = train(model_pos, optimizer, criterion, nepochs,
+                                                               train_data_loader_pos, dev_data_loader_pos)
