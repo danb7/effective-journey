@@ -118,8 +118,7 @@ def data_to_window(vocab, vocab_labels, data, window_size=5):
         windows_labels.extend(numerized_tags)
     return windows_sentences, windows_labels
 
-
-def plot_results(train_loss, val_loss, train_acc, val_acc):
+def plot_results(train_loss, val_loss, train_acc, val_acc, main_title):
     """
     This function takes lists of values and creates side-by-side graphs to show training and validation performance
     """
@@ -136,6 +135,7 @@ def plot_results(train_loss, val_loss, train_acc, val_acc):
     ax[0].set_xlabel("Epoch")
     ax[0].set_ylabel("Loss")
     ax[0].legend()
+    ax[0].set_xticks(range(0,len(train_loss)))
     ax[1].plot(
         train_acc, label="train", color="red", linestyle="--", linewidth=2, alpha=0.5
     )
@@ -145,7 +145,25 @@ def plot_results(train_loss, val_loss, train_acc, val_acc):
     ax[1].set_xlabel("Epoch")
     ax[1].set_ylabel("Accuracy")
     ax[1].legend()
-    plt.show()
+    ax[1].set_xticks(range(0,len(train_loss)))
+    fig.suptitle(main_title)
+    # plt.show()
+    best_acc=round(max(val_acc), 2)
+    best_loss=round(max(val_loss), 2)
+    fig.savefig(f'graphs/{main_title}_plot_{best_acc}_acc_{best_loss}_loss.png')
+
+
+def create_data(fname, splitter):  # TODO: might be easier this way to do the pre-trained.
+    train_data = read_data(fname, splitter)
+    sentences, labels = zip(*train_data)
+    vocab = Vocabulary()
+    vocab_labels = Vocabulary(is_labels=True)
+    vocab.build_vocabulary(sentences)
+    vocab_labels.build_vocabulary(labels)
+    dev_data = read_data('ner/dev', '\t')
+    dev_sentences, dev_labels = zip(*dev_data)
+    return vocab, sentences, labels, dev_sentences, dev_labels
+
 
 
 def create_data(fname, splitter):  # TODO: might be easier this way to do the pre-trained.
