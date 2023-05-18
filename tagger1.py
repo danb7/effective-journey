@@ -34,9 +34,12 @@ class tagger(nn.Module):
         # part 3 pretrained vocab
         self.WINDOW_SIZE = WINDOW_SIZE
         #init weights
+        torch.manual_seed(42)
         nn.init.xavier_uniform_(self.word_embeddings.weight)
         nn.init.xavier_uniform_(self.fc1.weight)
+        nn.init.constant_(self.fc1.bias, 0)
         nn.init.xavier_uniform_(self.fc2.weight)
+        nn.init.constant_(self.fc2.bias, 0)
 
     def forward(self, sentence):
         x = self.word_embeddings(sentence).view(-1, self.embedding_dim * self.WINDOW_SIZE)
@@ -121,26 +124,26 @@ def train(model, optimizer, criterion, nepochs, train_loader, val_loader, missio
 
 
 
-# print("___________________________________NER__________________________________________________")
+print("___________________________________NER__________________________________________________")
 
-# train_dataset = Tagging_Dataset(data_to_window(vocab, vocab_labels, train_data))
-# train_data_loader = DataLoader(train_dataset,
-#                                 batch_size=128, shuffle=True)
-
-
-
-# dev_dataset = Tagging_Dataset(data_to_window(vocab, vocab_labels, dev_data))
-# dev_data_loader = DataLoader(dev_dataset,
-#                                 batch_size=128, shuffle=True)
+train_dataset = Tagging_Dataset(data_to_window(vocab, vocab_labels, train_data))
+train_data_loader = DataLoader(train_dataset,
+                                batch_size=128, shuffle=True)
 
 
-# model = tagger(len(vocab), 50, 128, len(vocab_labels), 0.4)
-# criterion = nn.CrossEntropyLoss()
-# optimizer = optim.Adam(model.parameters())
-# nepochs = 5
 
-# train_losses, val_losses, train_accuracy, val_accuracy = train(model, optimizer, criterion, nepochs, train_data_loader, dev_data_loader)
-# # plot_results(train_losses, val_losses, train_accuracy, val_accuracy)
+dev_dataset = Tagging_Dataset(data_to_window(vocab, vocab_labels, dev_data))
+dev_data_loader = DataLoader(dev_dataset,
+                                batch_size=128, shuffle=True)
+
+
+model = tagger(len(vocab), 50, 128, len(vocab_labels), 0.4)
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.Adam(model.parameters())
+nepochs = 5
+
+train_losses, val_losses, train_accuracy, val_accuracy = train(model, optimizer, criterion, nepochs, train_data_loader, dev_data_loader)
+# plot_results(train_losses, val_losses, train_accuracy, val_accuracy)
 
 print("___________________________________POS__________________________________________________")
 
