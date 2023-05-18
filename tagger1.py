@@ -43,10 +43,10 @@ class tagger(nn.Module):
             self.word_embeddings.weight.data.copy_(torch.from_numpy(pre_trained_embeddings))
         else:
             nn.init.xavier_uniform_(self.word_embeddings.weight)
-            nn.init.xavier_uniform_(self.fc1.weight)
-            nn.init.constant_(self.fc1.bias, 0)
-            nn.init.xavier_uniform_(self.fc2.weight)
-            nn.init.constant_(self.fc2.bias, 0)
+        nn.init.xavier_uniform_(self.fc1.weight)
+        nn.init.constant_(self.fc1.bias, 0)
+        nn.init.xavier_uniform_(self.fc2.weight)
+        nn.init.constant_(self.fc2.bias, 0)
 
     def forward(self, sentence):
         x = self.word_embeddings(sentence).view(-1, self.embedding_dim * self.WINDOW_SIZE)
@@ -58,7 +58,7 @@ class tagger(nn.Module):
         return x
 
 
-def accuracy(pred, tags, mission='NER'):
+def accuracy(pred, tags, mission):
     corrects = 0
     total = len(pred)
     if mission.upper() == 'NER':
@@ -70,12 +70,14 @@ def accuracy(pred, tags, mission='NER'):
                 else:
                     corrects += 1
     else:
-        corrects = (pred == tags).sum()
-
+        # corrects = (pred == tags).sum()
+        for p, o in zip(pred, tags):
+            if (p == o):
+                corrects += 1
     return corrects, total
 
 
-def epoch_train(model, optimizer, criterion, train_loader, val_loader, mission='NER'):
+def epoch_train(model, optimizer, criterion, train_loader, val_loader, mission):
     running_loss = 0
     running_corrects, running_total = 0, 0
     for windows, tags in tqdm(train_loader):
@@ -94,7 +96,7 @@ def epoch_train(model, optimizer, criterion, train_loader, val_loader, mission='
     return running_loss / len(train_loader), running_corrects / running_total
 
 
-def evaluate(model, criterion, val_loader, mission='NER'):
+def evaluate(model, criterion, val_loader, mission):
     running_loss = 0
     running_corrects, running_total = 0, 0
     model.eval()
@@ -112,13 +114,13 @@ def evaluate(model, criterion, val_loader, mission='NER'):
         return running_loss / len(val_loader), running_corrects / running_total
 
 
-def train(model, optimizer, criterion, nepochs, train_loader, val_loader, mission='NER'):
+def train(model, optimizer, criterion, nepochs, train_loader, val_loader, mission):
     model.train()
     train_losses, val_losses = [], []
     train_accs, val_accs = [], []
     for e in range(nepochs):
-        loss, acc = epoch_train(model, optimizer, criterion, train_loader, val_loader, mission=mission)
-        val_loss, val_acc = evaluate(model, criterion, val_loader)
+        loss, acc = epoch_train(model, optimizer, criterion, train_loader, val_loader, mission)
+        val_loss, val_acc = evaluate(model, criterion, val_loader, mission)
         train_losses += [loss]
         val_losses += [val_loss]
         train_accs += [acc]
@@ -132,7 +134,35 @@ def train(model, optimizer, criterion, nepochs, train_loader, val_loader, missio
     return train_losses, val_losses, train_accs, val_accs
 
 
-def parameters_search(params_dict, train_dataset, dev_dataset, optimize='accuracy', mission='NER'):
+def parameters_search(params_dict, n_eopchs, train_dataset, dev_dataset, optimize='accuracy', mission='NER'):
+    '''Exhaustive search over specified parameter values
+
+    Parameters
+    ----------
+    params_dict : dict
+        Dictionary with parameters names (string) as keys and lists of
+        parameter settings to try as values.
+    n_eopchs : int
+        number of epoch to run per configuration
+    optimize : [accuracy | loss], default "accuracy"
+        Return the best configuration based on the specified [optimize]
+
+    Returns
+    -------
+    dict : {
+        'best_config': best parameters
+        'model': the model after all epochs
+        'train_losses': train losses for all epochs
+        'val_losses': val losses for all epochs
+        'train_accuracy': train accuracy for all epochs
+        'val_accuracy': val accuracy for all epochs
+    }
+
+
+    Notes
+    -----
+    Currently returning the model after all epochs and not the one after the n best epoch
+    '''
     best_config_val_loss = 9999999
     best_config_val_accuracy = -9999999
     search_space = [dict(zip(params_dict.keys(), values)) for values in product(*params_dict.values())]
@@ -149,8 +179,7 @@ def parameters_search(params_dict, train_dataset, dev_dataset, optimize='accurac
             model = tagger(len(vocab_pos), 50, config['hidden_layer'], len(vocab_labels_pos), config['dropout_p'])
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters(), lr=config['lr'])
-        nepochs = 5
-        train_losses, val_losses, train_accuracy, val_accuracy = train(model, optimizer, criterion, nepochs, train_data_loader, dev_data_loader)
+        train_losses, val_losses, train_accuracy, val_accuracy = train(model, optimizer, criterion, n_eopchs, train_data_loader, dev_data_loader, mission)
         if optimize=='accuracy':
             best_acc_eopch = np.argmax(val_accuracy)
             if val_accuracy[best_acc_eopch] > best_config_val_accuracy:
@@ -163,85 +192,53 @@ def parameters_search(params_dict, train_dataset, dev_dataset, optimize='accurac
                 best_config_val_loss = val_losses[best_loss_eopch]
                 best_config = config
                 best_config['nepochs'] = best_loss_eopch+1
-    return best_config
+    return {
+        'best_config': best_config,
+        'model': model,
+        'train_losses': train_losses, 
+        'val_losses': val_losses, 
+        'train_accuracy': train_accuracy, 
+        'val_accuracy': val_accuracy
+    }
 
 print("___________________________________NER__________________________________________________")
 use_pre_trained = len(sys.argv) > 1
 pre_embedding = None
 if use_pre_trained:
     vocab, pre_embedding = use_pretrained('vocab.txt', 'wordVectors.txt')
-    train_dataset = Tagging_Dataset(data_to_window(vocab, vocab_labels, train_data))
-else:
-    train_dataset = Tagging_Dataset(data_to_window(vocab, vocab_labels, train_data))
 
 train_dataset = Tagging_Dataset(data_to_window(vocab, vocab_labels, train_data))
 dev_dataset = Tagging_Dataset(data_to_window(vocab, vocab_labels, dev_data))
 
-params_dict = {
-    'hidden_layer': [170,90],
-    'dropout_p': [0.4, 0.2],
-    'batch_size': [128, 64],
-    'lr': [1e-3, 2e-3]
-    }
-
-params_dict = { # for debuging
+params_dict = { # for debuging i used only one item per and very big batch
     'hidden_layer': [170],
     'dropout_p': [0.4],
     'batch_size': [2048],
     'lr': [1e-3]
     }
 
-print('searching parameters...')
-best_params = parameters_search(params_dict, train_dataset, dev_dataset)
-print(f'Best parameters: {best_params}')
-
-model = tagger(len(vocab), 50, best_params['hidden_layer'], len(vocab_labels), best_params['dropout_p'])
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), best_params['lr'])
-nepochs = best_params['nepochs']
-train_data_loader = DataLoader(train_dataset,
-                                batch_size=best_params['batch_size'], shuffle=True)
-dev_data_loader = DataLoader(dev_dataset,
-                                batch_size=best_params['batch_size'], shuffle=True)
-train_losses, val_losses, train_accuracy, val_accuracy = train(model, optimizer, criterion, 5, train_data_loader, dev_data_loader)
-plot_results(train_losses, val_losses, train_accuracy, val_accuracy, main_title='NER')
+print('searching parameters...\n')
+best_tagger = parameters_search(params_dict, 7, train_dataset, dev_dataset, mission='NER')
+plot_results(best_tagger['train_losses'], best_tagger['val_losses'],\
+    best_tagger['train_accuracy'], best_tagger['val_accuracy'], main_title='NER')
+print(f'best parameters:\n{best_tagger["best_config"]}')
 
 print("___________________________________POS__________________________________________________")
 if use_pre_trained:
     vocab, pre_embedding = use_pretrained('vocab.txt', 'wordVectors.txt')
-    train_dataset_pos = Tagging_Dataset(data_to_window(vocab_pos, vocab_labels_pos, train_data_pos))
-else:
-    train_dataset_pos = Tagging_Dataset(data_to_window(vocab_pos, vocab_labels_pos, train_data_pos))
 
 train_dataset_pos = Tagging_Dataset(data_to_window(vocab_pos, vocab_labels_pos, train_data_pos))
 dev_dataset_pos = Tagging_Dataset(data_to_window(vocab_pos, vocab_labels_pos, dev_data_pos))
 
-pos_params_dict = {
-    'hidden_layer': [170,90],
-    'dropout_p': [0.4, 0.2],
-    'batch_size': [128, 64],
-    'lr': [1e-3, 2e-3]
-    }
-
-pos_params_dict = { # for debuging
+pos_params_dict = { # for debuging i used only one item per and very big batch
     'hidden_layer': [170],
     'dropout_p': [0.4],
-    'batch_size': [4096],
+    'batch_size': [2048],
     'lr': [1e-3]
     }
 
-print('searching parameters...')
-best_pos_params = parameters_search(pos_params_dict, train_dataset_pos, dev_dataset_pos, mission='POS')
-print(f'Best parameters: {best_pos_params}')
-
-model_pos = tagger(len(vocab_pos), 50, best_pos_params['hidden_layer'], len(vocab_labels_pos), best_pos_params['dropout_p'])
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model_pos.parameters(), best_pos_params['lr'])
-nepochs = best_pos_params['nepochs']
-train_data_loader_pos = DataLoader(train_dataset_pos,
-                                batch_size=best_pos_params['batch_size'], shuffle=True)
-dev_data_loader_pos = DataLoader(dev_dataset_pos,
-                                batch_size=best_pos_params['batch_size'], shuffle=True)
-
-train_losses, val_losses, train_accuracy, val_accuracy = train(model_pos, optimizer, criterion, 5, train_data_loader_pos, dev_data_loader_pos)
-plot_results(train_losses, val_losses, train_accuracy, val_accuracy, main_title='POS')
+print('searching parameters...\n')
+best_tagger_pos = parameters_search(pos_params_dict, 7, train_dataset_pos, dev_dataset_pos, mission='POS')
+plot_results(best_tagger_pos['train_losses'], best_tagger_pos['val_losses'],\
+    best_tagger_pos['train_accuracy'], best_tagger_pos['val_accuracy'], main_title='POS')
+print(f'best parameters:\n{best_tagger_pos["best_config"]}')
