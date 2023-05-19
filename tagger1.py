@@ -5,7 +5,7 @@ from tqdm import tqdm
 import numpy as np
 import torch
 from torch import nn, optim
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, TensorDataset
 import torch.nn.functional as F
 from itertools import product
 
@@ -115,10 +115,80 @@ def evaluate(model, criterion, val_loader, mission):
         return running_loss / len(val_loader), running_corrects / running_total
 
 
-def train(model, optimizer, criterion, nepochs, train_loader, val_loader, mission):
+def test_prediction(model, test_data):
+    '''Predict on test data.
+
+    Parameters
+    ----------
+    model : tagger
+    test_data : list
+        list of windows
+
+    Returns
+    -------
+    predictions : Tensor
+        predictions for every word
+    '''
+    model.eval()
+    predictions = []
+    with torch.no_grad():
+        for window in test_data:
+            window = window[0]
+            outputs = model(window)
+            pred = torch.argmax(outputs, 1)
+            predictions.append(pred)
+    predictions = torch.cat(predictions)  # Concatenate predictions into a single tensor
+    return predictions
+
+def save_test_file(test_data, predictions_labels, save_path=None, seperator=' '):
+    '''save test predictions to file.
+
+    Parameters
+    ----------
+    save_path : str
+        save the test predictions file in that path.
+    seperator : str
+        seperator between word and tag
+    '''
+    f = open(save_path,"w")
+    i=0
+    for sentence in test_data:
+        for word in sentence.split(' '):
+            f.write(f'{word}{seperator}{predictions_labels[i]}\n')
+            i+=1
+        f.write("\n")
+        
+
+def train(model, optimizer, criterion, nepochs, train_loader, val_loader, mission, return_best_epoch=True, optimize='accuracy'):
+    '''Train the model epoch by epoch.
+
+    Parameters
+    ----------
+    model : tagger
+    optimizer : optimizer
+    criterion : Loss function
+    n_eopchs : int
+        number of epoch to train the model
+    train_loader : Tagging_Dataset
+        the train data
+    val_loader : Tagging_Dataset
+        the validation data
+    mission : ['NER' | 'POS']
+    return_best_epoch : bool, default True
+        weather to return in addition the best model at the best epoch
+    optimize : [accuracy | loss], default "accuracy"
+        Return the best configuration based on the specified [optimize]
+
+    Returns
+    -------
+    return 4 list of train and validation loss and accuracy per epoch
+    optional: if return_best_epoch is True return also the best model
+    '''
     model.train()
     train_losses, val_losses = [], []
     train_accs, val_accs = [], []
+    best_val_loss = 9999999
+    best_val_accuracy = -9999999
     for e in range(nepochs):
         loss, acc = epoch_train(model, optimizer, criterion, train_loader, val_loader, mission)
         val_loss, val_acc = evaluate(model, criterion, val_loader, mission)
@@ -126,16 +196,29 @@ def train(model, optimizer, criterion, nepochs, train_loader, val_loader, missio
         val_losses += [val_loss]
         train_accs += [acc]
         val_accs += [val_acc]
+
+        if return_best_epoch:
+            if optimize=='accuracy':
+                if val_acc > best_val_accuracy:
+                    best_val_accuracy = val_acc
+                    best_model = model
+            else: # optimize=='loss'
+                if val_loss < best_val_loss:
+                    best_val_loss = val_loss
+                    best_model = model
+
         print("Epoch: {}/{}.. ".format(e + 1, nepochs),
               "Training Loss: {:.3f}.. ".format(train_losses[-1]),
               "Validation Loss: {:.3f}.. ".format(val_losses[-1]),
               f'Accuracy train: {(100 * (train_accs[-1]))}',
               f'Accuracy validation: {(100 * (val_accs[-1]))}')
+    if return_best_epoch:
+        return train_losses, val_losses, train_accs, val_accs, best_model
+    else:
+        return train_losses, val_losses, train_accs, val_accs
 
-    return train_losses, val_losses, train_accs, val_accs
 
-
-def parameters_search(params_dict, n_eopchs, train_dataset, dev_dataset, optimize='accuracy', mission='NER'):
+def parameters_search(params_dict, n_eopchs, train_dataset, dev_dataset, return_best_epoch=True, optimize='accuracy', mission='NER'):
     '''Exhaustive search over specified parameter values
 
     Parameters
@@ -145,20 +228,27 @@ def parameters_search(params_dict, n_eopchs, train_dataset, dev_dataset, optimiz
         parameter settings to try as values.
     n_eopchs : int
         number of epoch to run per configuration
+    return_best_epoch : bool, default True
+        weather to return in addition the best model at the best epoch
     optimize : [accuracy | loss], default "accuracy"
         Return the best configuration based on the specified [optimize]
 
     Returns
     -------
     dict : {
-        'best_config': best parameters
-        'model': the model after all epochs
-        'train_losses': train losses for all epochs
-        'val_losses': val losses for all epochs
-        'train_accuracy': train accuracy for all epochs
-        'val_accuracy': val accuracy for all epochs
+        'best_config': dict
+            best parameters
+        'model': tagger
+            [best model | model after all epoches] based on return_best_epoch 
+        'train_losses': list
+            train losses for all epochs
+        'val_losses': list
+            val losses for all epochs
+        'train_accuracy': list
+            train accuracy for all epochs
+        'val_accuracy': list
+            val accuracy for all epochs
     }
-
 
     Notes
     -----
@@ -180,7 +270,7 @@ def parameters_search(params_dict, n_eopchs, train_dataset, dev_dataset, optimiz
             model = tagger(len(vocab_pos), 50, config['hidden_layer'], len(vocab_labels_pos), config['dropout_p'])
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters(), lr=config['lr'])
-        train_losses, val_losses, train_accuracy, val_accuracy = train(model, optimizer, criterion, n_eopchs, train_data_loader, dev_data_loader, mission)
+        train_losses, val_losses, train_accuracy, val_accuracy, best_config_model = train(model, optimizer, criterion, n_eopchs, train_data_loader, dev_data_loader, mission)
         if optimize=='accuracy':
             best_acc_eopch = np.argmax(val_accuracy)
             if val_accuracy[best_acc_eopch] > best_config_val_accuracy:
@@ -193,14 +283,25 @@ def parameters_search(params_dict, n_eopchs, train_dataset, dev_dataset, optimiz
                 best_config_val_loss = val_losses[best_loss_eopch]
                 best_config = config
                 best_config['nepochs'] = best_loss_eopch+1
-    return {
-        'best_config': best_config,
-        'model': model,
-        'train_losses': train_losses, 
-        'val_losses': val_losses, 
-        'train_accuracy': train_accuracy, 
-        'val_accuracy': val_accuracy
-    }
+    
+    if return_best_epoch:
+        return {
+            'best_config': best_config,
+            'model': best_config_model,
+            'train_losses': train_losses, 
+            'val_losses': val_losses, 
+            'train_accuracy': train_accuracy, 
+            'val_accuracy': val_accuracy
+        }
+    else:
+        return {
+            'best_config': best_config,
+            'model': model,
+            'train_losses': train_losses, 
+            'val_losses': val_losses, 
+            'train_accuracy': train_accuracy, 
+            'val_accuracy': val_accuracy
+        }
 
 print("___________________________________NER__________________________________________________")
 train_data = read_data('ner/train', '\t')
@@ -228,6 +329,13 @@ plot_results(best_tagger['train_losses'], best_tagger['val_losses'],\
     best_tagger['train_accuracy'], best_tagger['val_accuracy'], main_title='NER')
 print(f'best parameters:\n{best_tagger["best_config"]}')
 
+# saving test predictions
+test_data = read_test_file('ner/test') 
+test_dataset = TensorDataset(torch.LongTensor(data_to_window(vocab, vocab_labels, test_data, include_labels=False)))
+test_preds = test_prediction(best_tagger['model'], test_dataset)
+test_preds_labels = [vocab_labels.itos[p.item()] for p in test_preds]
+save_test_file(test_data, test_preds_labels, 'test1.ner', seperator='\t')
+
 print("___________________________________POS__________________________________________________")
 train_data_pos = read_data('pos/train', ' ')
 dev_data_pos = read_data('pos/dev', ' ')
@@ -251,3 +359,10 @@ best_tagger_pos = parameters_search(pos_params_dict, 7, train_dataset_pos, dev_d
 plot_results(best_tagger_pos['train_losses'], best_tagger_pos['val_losses'],\
     best_tagger_pos['train_accuracy'], best_tagger_pos['val_accuracy'], main_title='POS')
 print(f'best parameters:\n{best_tagger_pos["best_config"]}')
+
+# saving test predictions
+test_data_pos = read_test_file('pos/test') 
+test_dataset_pos = TensorDataset(torch.LongTensor(data_to_window(vocab_pos, vocab_labels_pos, test_data_pos, include_labels=False)))
+test_preds_pos = test_prediction(best_tagger_pos['model'], test_dataset_pos)
+test_preds_labels_pos = [vocab_labels_pos.itos[p.item()] for p in test_preds_pos]
+save_test_file(test_data_pos, test_preds_labels_pos, 'test1.pos', seperator=' ')

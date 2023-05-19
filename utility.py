@@ -22,6 +22,22 @@ def read_data(fname, splitter,lower=False):
             labels = ""
     return sentence_list
 
+def read_test_file(fname):
+    sentence_list = []
+    with open(fname, encoding="utf8") as f:
+        lines = f.readlines()
+    sentence = ""
+    for line in lines:
+        if line != '\n':
+            text = line.strip()
+            sentence = sentence + text + " "
+        else:
+            sentence = sentence[:-1]
+            sentence_list.append(sentence)
+            sentence = ""
+
+    return sentence_list
+
 
 def use_pretrained(vocab, embeddings):
     with open(vocab, encoding="utf8") as f:
@@ -108,15 +124,30 @@ def sentence_to_windows(vocab, vocab_labels, sentence, labels=None, window_size=
         return windows_sentence
 
 
-def data_to_window(vocab, vocab_labels, data, window_size=5):
+def data_to_window(vocab, vocab_labels, data, include_labels=True, window_size=5):
+    '''Transform data sentences to windows per word
+
+    Parameters
+    ----------
+    include_labels : bool, default True
+        Whether to return labels in addition to sentences.
+        Useful when transforming test data
+    '''
     windows_sentences = []
     windows_labels = []
-    sentences, labels = zip(*data)
-    for sentence, tags in zip(sentences, labels):
-        windows, numerized_tags = sentence_to_windows(vocab, vocab_labels, sentence, tags)
+    for row in data:
+        if include_labels:
+            sentence, tags = row
+            windows, numerized_tags = sentence_to_windows(vocab, vocab_labels, sentence, tags)
+        else:
+            windows = sentence_to_windows(vocab, vocab_labels, row)
         windows_sentences.extend(windows)
-        windows_labels.extend(numerized_tags)
-    return windows_sentences, windows_labels
+        if include_labels:
+            windows_labels.extend(numerized_tags)
+    if include_labels:
+        return windows_sentences, windows_labels
+    else:
+        return windows_sentences
 
 def plot_results(train_loss, val_loss, train_acc, val_acc, main_title=''):
     """
