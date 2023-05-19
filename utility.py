@@ -118,7 +118,7 @@ def data_to_window(vocab, vocab_labels, data, window_size=5):
         windows_labels.extend(numerized_tags)
     return windows_sentences, windows_labels
 
-def plot_results(train_loss, val_loss, train_acc, val_acc, main_title):
+def plot_results(train_loss, val_loss, train_acc, val_acc, main_title=''):
     """
     This function takes lists of values and creates side-by-side graphs to show training and validation performance
     """
@@ -146,7 +146,7 @@ def plot_results(train_loss, val_loss, train_acc, val_acc, main_title):
     fig.suptitle(main_title)
     # plt.show()
     best_acc=round(max(val_acc), 2)
-    best_loss=round(max(val_loss), 2)
+    best_loss=round(min(val_loss), 2)
     fig.savefig(f'graphs/{main_title}_plot_{best_acc}_acc_{best_loss}_loss.png')
 
 

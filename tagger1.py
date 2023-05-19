@@ -43,7 +43,7 @@ class tagger(nn.Module):
             self.word_embeddings.weight.data.copy_(torch.from_numpy(pre_trained_embeddings))
         else:
             nn.init.xavier_uniform_(self.word_embeddings.weight)
-        nn.init.xavier_uniform_(self.fc1.weight)
+        nn.init.xavier_uniform_(self.fc1.weight, gain=torch.nn.init.calculate_gain('tanh'))
         nn.init.constant_(self.fc1.bias, 0)
         nn.init.xavier_uniform_(self.fc2.weight)
         nn.init.constant_(self.fc2.bias, 0)
@@ -80,6 +80,7 @@ def accuracy(pred, tags, mission):
 def epoch_train(model, optimizer, criterion, train_loader, val_loader, mission):
     running_loss = 0
     running_corrects, running_total = 0, 0
+    model.train()
     for windows, tags in tqdm(train_loader):
         optimizer.zero_grad()
         output = model(windows)
@@ -211,10 +212,10 @@ train_dataset = Tagging_Dataset(data_to_window(vocab, vocab_labels, train_data))
 dev_dataset = Tagging_Dataset(data_to_window(vocab, vocab_labels, dev_data))
 
 params_dict = { # for debuging i used only one item per and very big batch
-    'hidden_layer': [170],
-    'dropout_p': [0.4],
-    'batch_size': [2048],
-    'lr': [1e-3]
+    'hidden_layer': [90],#[170, 90],
+    'dropout_p': [0.5],#[0.5, 0.4],
+    'batch_size': [128],#[512, 128],
+    'lr': [1e-4]#[1e-4, 2e-4]
     }
 
 print('searching parameters...\n')
@@ -233,8 +234,8 @@ dev_dataset_pos = Tagging_Dataset(data_to_window(vocab_pos, vocab_labels_pos, de
 pos_params_dict = { # for debuging i used only one item per and very big batch
     'hidden_layer': [170],
     'dropout_p': [0.4],
-    'batch_size': [2048],
-    'lr': [1e-3]
+    'batch_size': [128],
+    'lr': [5e-4]
     }
 
 print('searching parameters...\n')
