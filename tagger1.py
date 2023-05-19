@@ -234,7 +234,7 @@ dev_data_pos = read_data('pos/dev', ' ')
 vocab_pos, vocab_labels_pos = create_vocabs(train_data_pos)
 
 if use_pre_trained:
-    vocab, pre_embedding = use_pretrained('vocab.txt', 'wordVectors.txt')
+    vocab_pos, pre_embedding = use_pretrained('vocab.txt', 'wordVectors.txt')
 
 train_dataset_pos = Tagging_Dataset(data_to_window(vocab_pos, vocab_labels_pos, train_data_pos))
 dev_dataset_pos = Tagging_Dataset(data_to_window(vocab_pos, vocab_labels_pos, dev_data_pos))
