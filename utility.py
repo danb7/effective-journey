@@ -150,34 +150,10 @@ def plot_results(train_loss, val_loss, train_acc, val_acc, main_title=''):
     fig.savefig(f'graphs/{main_title}_plot_{best_acc}_acc_{best_loss}_loss.png')
 
 
-def create_data(fname, splitter):  # TODO: might be easier this way to do the pre-trained.
-    train_data = read_data(fname, splitter)
+def create_vocabs(train_data):
     sentences, labels = zip(*train_data)
     vocab = Vocabulary()
     vocab_labels = Vocabulary(is_labels=True)
     vocab.build_vocabulary(sentences)
     vocab_labels.build_vocabulary(labels)
-    dev_data = read_data('ner/dev', '\t')
-    dev_sentences, dev_labels = zip(*dev_data)
-    return vocab, sentences, labels, dev_sentences, dev_labels
-
-
-################NER################
-train_data = read_data('ner/train', '\t')
-sentences, labels = zip(*train_data)
-vocab = Vocabulary()
-vocab_labels = Vocabulary(is_labels=True)
-vocab.build_vocabulary(sentences)
-vocab_labels.build_vocabulary(labels)
-dev_data = read_data('ner/dev', '\t')
-dev_sentences, dev_labels = zip(*dev_data)
-
-################POS################
-train_data_pos = read_data('pos/train', ' ')
-sentences_pos, labels_pos = zip(*train_data_pos)
-vocab_pos = Vocabulary()
-vocab_labels_pos = Vocabulary(is_labels=True)
-vocab_pos.build_vocabulary(sentences_pos)
-vocab_labels_pos.build_vocabulary(labels_pos)
-dev_data_pos = read_data('pos/dev', ' ')
-dev_sentences_pos, dev_labels_pos = zip(*dev_data_pos)
+    return vocab, vocab_labels

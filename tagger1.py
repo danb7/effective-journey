@@ -203,6 +203,10 @@ def parameters_search(params_dict, n_eopchs, train_dataset, dev_dataset, optimiz
     }
 
 print("___________________________________NER__________________________________________________")
+train_data = read_data('ner/train', '\t')
+dev_data = read_data('ner/dev', '\t')
+vocab, vocab_labels = create_vocabs(train_data)
+
 use_pre_trained = len(sys.argv) > 1
 pre_embedding = None
 if use_pre_trained:
@@ -225,6 +229,10 @@ plot_results(best_tagger['train_losses'], best_tagger['val_losses'],\
 print(f'best parameters:\n{best_tagger["best_config"]}')
 
 print("___________________________________POS__________________________________________________")
+train_data_pos = read_data('pos/train', ' ')
+dev_data_pos = read_data('pos/dev', ' ')
+vocab_pos, vocab_labels_pos = create_vocabs(train_data_pos)
+
 if use_pre_trained:
     vocab, pre_embedding = use_pretrained('vocab.txt', 'wordVectors.txt')
 
@@ -235,7 +243,7 @@ pos_params_dict = { # for debuging i used only one item per and very big batch
     'hidden_layer': [170],
     'dropout_p': [0.4],
     'batch_size': [128],
-    'lr': [5e-4]
+    'lr': [1e-4]
     }
 
 print('searching parameters...\n')
