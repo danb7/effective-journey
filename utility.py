@@ -2,7 +2,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 
-def read_data(fname, splitter):
+def read_data(fname, splitter,lower=False):
     sentence_list = []
     with open(fname, encoding="utf8") as f:
         lines = f.readlines()
@@ -11,7 +11,7 @@ def read_data(fname, splitter):
     for line in lines:
         if line != '\n':
             text, label = line.strip().split(splitter, 1)  # TODO: check lower
-            # text = text.lower()
+            text = text.lower() if lower else text
             sentence = sentence + text + " "
             labels = labels + label + " "
         else:

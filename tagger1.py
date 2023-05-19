@@ -216,10 +216,10 @@ train_dataset = Tagging_Dataset(data_to_window(vocab, vocab_labels, train_data))
 dev_dataset = Tagging_Dataset(data_to_window(vocab, vocab_labels, dev_data))
 
 params_dict = { # for debuging i used only one item per and very big batch
-    'hidden_layer': [90],#[170, 90],
-    'dropout_p': [0.5],#[0.5, 0.4],
-    'batch_size': [128],#[512, 128],
-    'lr': [1e-4]#[1e-4, 2e-4]
+    'hidden_layer': [170, 90],
+    'dropout_p': [0.5, 0.4],
+    'batch_size': [128, 64],
+    'lr': [1e-4, 5e-5]
     }
 
 print('searching parameters...\n')
@@ -234,16 +234,16 @@ dev_data_pos = read_data('pos/dev', ' ')
 vocab_pos, vocab_labels_pos = create_vocabs(train_data_pos)
 
 if use_pre_trained:
-    vocab, pre_embedding = use_pretrained('vocab.txt', 'wordVectors.txt')
+    vocab_pos, pre_embedding = use_pretrained('vocab.txt', 'wordVectors.txt')
 
 train_dataset_pos = Tagging_Dataset(data_to_window(vocab_pos, vocab_labels_pos, train_data_pos))
 dev_dataset_pos = Tagging_Dataset(data_to_window(vocab_pos, vocab_labels_pos, dev_data_pos))
 
 pos_params_dict = { # for debuging i used only one item per and very big batch
     'hidden_layer': [170],
-    'dropout_p': [0.4],
+    'dropout_p': [0.2],
     'batch_size': [128],
-    'lr': [1e-4]
+    'lr': [1e-4, 5e-5]
     }
 
 print('searching parameters...\n')
