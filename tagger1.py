@@ -218,7 +218,7 @@ def train(model, optimizer, criterion, nepochs, train_loader, val_loader, missio
         return train_losses, val_losses, train_accs, val_accs
 
 
-def parameters_search(params_dict, n_eopchs, train_dataset, dev_dataset, return_best_epoch=True, optimize='accuracy', mission='NER'):
+def parameters_search(params_dict, n_eopchs, train_dataset, dev_dataset, return_best_epoch=True, optimize='accuracy', mission='NER', pre_trained_emb=None):
     '''Exhaustive search over specified parameter values
 
     Parameters
@@ -232,6 +232,8 @@ def parameters_search(params_dict, n_eopchs, train_dataset, dev_dataset, return_
         weather to return in addition the best model at the best epoch
     optimize : [accuracy | loss], default "accuracy"
         Return the best configuration based on the specified [optimize]
+    pre_trained_emb : Embedding matrix, default None
+        if not none, use that embedding matrix
 
     Returns
     -------
@@ -265,9 +267,9 @@ def parameters_search(params_dict, n_eopchs, train_dataset, dev_dataset, return_
         dev_data_loader = DataLoader(dev_dataset,
                                 batch_size=config['batch_size'], shuffle=True)
         if mission == 'NER':
-            model = tagger(len(vocab), 50, config['hidden_layer'], len(vocab_labels), config['dropout_p'])
+            model = tagger(len(vocab), 50, config['hidden_layer'], len(vocab_labels), config['dropout_p'], pre_trained_emb)
         else:
-            model = tagger(len(vocab_pos), 50, config['hidden_layer'], len(vocab_labels_pos), config['dropout_p'])
+            model = tagger(len(vocab_pos), 50, config['hidden_layer'], len(vocab_labels_pos), config['dropout_p'], pre_trained_emb)
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters(), lr=config['lr'])
         train_losses, val_losses, train_accuracy, val_accuracy, best_config_model = train(model, optimizer, criterion, n_eopchs, train_data_loader, dev_data_loader, mission)
@@ -305,6 +307,7 @@ vocab, vocab_labels = create_vocabs(train_data)
 use_pre_trained = len(sys.argv) > 1
 pre_embedding = None
 if use_pre_trained:
+    print('using pre-trained embedding\n')
     vocab, pre_embedding = use_pretrained('vocab.txt', 'wordVectors.txt')
 
 train_dataset = Tagging_Dataset(data_to_window(vocab, vocab_labels, train_data))
@@ -320,7 +323,7 @@ params_dict = {
 # {'hidden_layer': 130, 'dropout_p': 0.3, 'batch_size': 128, 'lr': 0.0001, 'nepochs': 6}
 best_params_dict = {'hidden_layer': [130], 'dropout_p': [0.3], 'batch_size': [128], 'lr': [0.0001]}
 print('searching parameters...\n')
-best_tagger = parameters_search(best_params_dict, 10, train_dataset, dev_dataset, mission='NER')
+best_tagger = parameters_search(best_params_dict, 10, train_dataset, dev_dataset, mission='NER', pre_trained_emb=pre_embedding)
 plot_results(best_tagger['train_losses'], best_tagger['val_losses'],\
     best_tagger['train_accuracy'], best_tagger['val_accuracy'], main_title='NER')
 print(f'best parameters:\n{best_tagger["best_config"]}')
@@ -338,6 +341,7 @@ dev_data_pos = read_data('pos/dev', ' ')
 vocab_pos, vocab_labels_pos = create_vocabs(train_data_pos)
 
 if use_pre_trained:
+    print('using pre-trained embedding\n')
     vocab_pos, pre_embedding = use_pretrained('vocab.txt', 'wordVectors.txt')
 
 train_dataset_pos = Tagging_Dataset(data_to_window(vocab_pos, vocab_labels_pos, train_data_pos))
@@ -353,7 +357,7 @@ pos_params_dict = { # for debuging i used only one item per and very big batch
 # {'hidden_layer': 90, 'dropout_p': 0.2, 'batch_size': 64, 'lr': 5e-05, 'nepochs': 8}
 best_pos_params_dict = {'hidden_layer': [90], 'dropout_p': [0.2], 'batch_size': [64], 'lr': [5e-05]}
 print('searching parameters...\n')
-best_tagger_pos = parameters_search(best_pos_params_dict, 10, train_dataset_pos, dev_dataset_pos, mission='POS')
+best_tagger_pos = parameters_search(best_pos_params_dict, 10, train_dataset_pos, dev_dataset_pos, mission='POS', pre_trained_emb=pre_embedding)
 plot_results(best_tagger_pos['train_losses'], best_tagger_pos['val_losses'],\
     best_tagger_pos['train_accuracy'], best_tagger_pos['val_accuracy'], main_title='POS')
 print(f'best parameters:\n{best_tagger_pos["best_config"]}')
