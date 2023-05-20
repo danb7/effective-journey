@@ -277,31 +277,25 @@ def parameters_search(params_dict, n_eopchs, train_dataset, dev_dataset, return_
                 best_config_val_accuracy = val_accuracy[best_acc_eopch]
                 best_config = config
                 best_config['nepochs'] = best_acc_eopch+1
+                best_model = best_config_model if return_best_epoch else model
+                best_train_losses, best_val_losses, best_train_accuracy, best_val_accuracy = train_losses, val_losses, train_accuracy, val_accuracy
         else: # optimize=='loss'
             best_loss_eopch = np.argmin(val_losses)
             if val_losses[best_loss_eopch] < best_config_val_loss:
                 best_config_val_loss = val_losses[best_loss_eopch]
                 best_config = config
                 best_config['nepochs'] = best_loss_eopch+1
+                best_model = best_config_model if return_best_epoch else model
+                best_train_losses, best_val_losses, best_train_accuracy, best_val_accuracy = train_losses, val_losses, train_accuracy, val_accuracy
     
-    if return_best_epoch:
-        return {
-            'best_config': best_config,
-            'model': best_config_model,
-            'train_losses': train_losses, 
-            'val_losses': val_losses, 
-            'train_accuracy': train_accuracy, 
-            'val_accuracy': val_accuracy
-        }
-    else:
-        return {
-            'best_config': best_config,
-            'model': model,
-            'train_losses': train_losses, 
-            'val_losses': val_losses, 
-            'train_accuracy': train_accuracy, 
-            'val_accuracy': val_accuracy
-        }
+    return {
+        'best_config': best_config,
+        'model': best_model,
+        'train_losses': best_train_losses, 
+        'val_losses': best_val_losses, 
+        'train_accuracy': best_train_accuracy, 
+        'val_accuracy': best_val_accuracy
+    }
 
 print("___________________________________NER__________________________________________________")
 train_data = read_data('ner/train', '\t')
@@ -316,15 +310,17 @@ if use_pre_trained:
 train_dataset = Tagging_Dataset(data_to_window(vocab, vocab_labels, train_data))
 dev_dataset = Tagging_Dataset(data_to_window(vocab, vocab_labels, dev_data))
 
-params_dict = { # for debuging i used only one item per and very big batch
-    'hidden_layer': [170, 90],
-    'dropout_p': [0.5, 0.4],
-    'batch_size': [128, 64],
-    'lr': [1e-4, 5e-5]
+params_dict = {
+    'hidden_layer': [170, 130, 90],
+    'dropout_p': [0.5, 0.4, 0.3],
+    'batch_size': [256, 128, 64],
+    'lr': [1e-4, 5e-5, 1e-5]
     }
-
+# best parameters:
+# {'hidden_layer': 130, 'dropout_p': 0.3, 'batch_size': 128, 'lr': 0.0001, 'nepochs': 6}
+best_params_dict = {'hidden_layer': [130], 'dropout_p': [0.3], 'batch_size': [128], 'lr': [0.0001]}
 print('searching parameters...\n')
-best_tagger = parameters_search(params_dict, 7, train_dataset, dev_dataset, mission='NER')
+best_tagger = parameters_search(best_params_dict, 10, train_dataset, dev_dataset, mission='NER')
 plot_results(best_tagger['train_losses'], best_tagger['val_losses'],\
     best_tagger['train_accuracy'], best_tagger['val_accuracy'], main_title='NER')
 print(f'best parameters:\n{best_tagger["best_config"]}')
@@ -348,14 +344,16 @@ train_dataset_pos = Tagging_Dataset(data_to_window(vocab_pos, vocab_labels_pos, 
 dev_dataset_pos = Tagging_Dataset(data_to_window(vocab_pos, vocab_labels_pos, dev_data_pos))
 
 pos_params_dict = { # for debuging i used only one item per and very big batch
-    'hidden_layer': [170],
-    'dropout_p': [0.2],
-    'batch_size': [128],
+    'hidden_layer': [170, 90],
+    'dropout_p': [0.4, 0.2],
+    'batch_size': [128, 64],
     'lr': [1e-4, 5e-5]
     }
-
+# best parameters:
+# {'hidden_layer': 90, 'dropout_p': 0.2, 'batch_size': 64, 'lr': 5e-05, 'nepochs': 8}
+best_pos_params_dict = {'hidden_layer': [90], 'dropout_p': [0.2], 'batch_size': [64], 'lr': [5e-05]}
 print('searching parameters...\n')
-best_tagger_pos = parameters_search(pos_params_dict, 7, train_dataset_pos, dev_dataset_pos, mission='POS')
+best_tagger_pos = parameters_search(best_pos_params_dict, 10, train_dataset_pos, dev_dataset_pos, mission='POS')
 plot_results(best_tagger_pos['train_losses'], best_tagger_pos['val_losses'],\
     best_tagger_pos['train_accuracy'], best_tagger_pos['val_accuracy'], main_title='POS')
 print(f'best parameters:\n{best_tagger_pos["best_config"]}')
