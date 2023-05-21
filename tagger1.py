@@ -300,12 +300,11 @@ def parameters_search(params_dict, n_eopchs, train_dataset, dev_dataset, return_
     }
 
 print("___________________________________NER__________________________________________________")
-train_data = read_data('ner/train', '\t')
-dev_data = read_data('ner/dev', '\t')
-vocab, vocab_labels = create_vocabs(train_data)
-
 use_pre_trained = len(sys.argv) > 1
 pre_embedding = None
+train_data = read_data('ner/train', '\t', lower=use_pre_trained)
+dev_data = read_data('ner/dev', '\t', lower=use_pre_trained)
+vocab, vocab_labels = create_vocabs(train_data)
 if use_pre_trained:
     print('using pre-trained embedding\n')
     vocab, pre_embedding = use_pretrained('vocab.txt', 'wordVectors.txt')
@@ -336,8 +335,8 @@ test_preds_labels = [vocab_labels.itos[p.item()] for p in test_preds]
 save_test_file(test_data, test_preds_labels, 'test1.ner', seperator='\t')
 
 print("___________________________________POS__________________________________________________")
-train_data_pos = read_data('pos/train', ' ')
-dev_data_pos = read_data('pos/dev', ' ')
+train_data_pos = read_data('pos/train', ' ', lower=use_pre_trained)
+dev_data_pos = read_data('pos/dev', ' ', lower=use_pre_trained)
 vocab_pos, vocab_labels_pos = create_vocabs(train_data_pos)
 
 if use_pre_trained:
