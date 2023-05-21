@@ -1,7 +1,9 @@
 import numpy as np
 from matplotlib import pyplot as plt
 
-
+SOS = '<s>'
+EOS = '</s>'
+UNK = 'UUUNKKK'
 def read_data(fname, splitter,lower=False):
     sentence_list = []
     with open(fname, encoding="utf8") as f:
@@ -17,7 +19,7 @@ def read_data(fname, splitter,lower=False):
         else:
             sentence = sentence[:-1]
             labels = labels[:-1]
-            sentence_list.append((sentence, labels))
+            sentence_list.append((f'{SOS} {SOS} {sentence} {EOS} {EOS}', labels))
             sentence = ""
             labels = ""
     return sentence_list
@@ -48,11 +50,7 @@ def use_pretrained(vocab, embeddings):
     pre_vocab = Vocabulary()
     pre_vocab.build_vocabulary(words[1:])
     vecs = np.loadtxt(embeddings)
-    sos = np.random.randn(vecs.shape[1])
-    eos = np.random.randn(vecs.shape[1])
-    new_vecs = np.insert(vecs, [1], [sos], axis=0)
-    new_vecs = np.insert(new_vecs, [2], [eos], axis=0)
-    return pre_vocab, new_vecs
+    return pre_vocab, vecs
 
 
 class Vocabulary:
@@ -60,7 +58,7 @@ class Vocabulary:
         self.is_labels = is_labels
         self.itos = {}
         if not is_labels:
-            self.itos = {0: '<UNK>', 1: '<SOS>', 2: '<EOS>'}
+            self.itos = {0: UNK}
         # initiate the token to index dict
         self.stoi = {k: j for j, k in self.itos.items()}
 
@@ -75,7 +73,7 @@ class Vocabulary:
 
     def build_vocabulary(self, data, is_sentence=True):
         frequencies = {}  # init the freq dict
-        idx = 0 if self.is_labels else 3  # index from which we want our dict to start. We already used 4 indexes for pad, start, end, unk
+        idx = 0 if self.is_labels else 1  # index from which we want our dict to start. We already used 4 indexes for pad, start, end, unk
 
         # calculate freq of words
         for sentence in data:
@@ -105,7 +103,7 @@ class Vocabulary:
                 format_digits = check_if_a_number(token, self.stoi.keys())
                 numericalized_text.append(self.stoi[format_digits])
             else:  # out-of-vocab words are represented by UNK token index
-                numericalized_text.append(self.stoi['<UNK>'])
+                numericalized_text.append(self.stoi[UNK])
 
         return numericalized_text
 
@@ -114,9 +112,7 @@ class Vocabulary:
 
 
 def sentence_to_windows(vocab, vocab_labels, sentence, labels=None, window_size=5):
-    numerized_senetnce = [vocab.stoi["<SOS>"], vocab.stoi["<SOS>"]]
-    numerized_senetnce += vocab.numericalize(sentence)
-    numerized_senetnce.extend([vocab.stoi["<EOS>"]] * 2)
+    numerized_senetnce = vocab.numericalize(sentence)
     windows_sentence = [(numerized_senetnce[i - 2], numerized_senetnce[i - 1], numerized_senetnce[i],
                          numerized_senetnce[i + 1], numerized_senetnce[i + 2]) for i in
                         range(2, len(numerized_senetnce) - 2)]

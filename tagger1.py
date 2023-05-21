@@ -48,8 +48,8 @@ class tagger(nn.Module):
         nn.init.xavier_uniform_(self.fc2.weight)
         nn.init.constant_(self.fc2.bias, 0)
 
-    def forward(self, sentence):
-        x = self.word_embeddings(sentence).view(-1, self.embedding_dim * self.WINDOW_SIZE)
+    def forward(self, windows):
+        x = self.word_embeddings(windows).view(-1, self.embedding_dim * self.WINDOW_SIZE)
         x = self.fc1(x)
         x = self.dropout1(x)
         x = self.activation(x)
@@ -320,7 +320,7 @@ params_dict = {
     }
 # best parameters:
 # {'hidden_layer': 130, 'dropout_p': 0.3, 'batch_size': 128, 'lr': 0.0001, 'nepochs': 6}
-best_params_dict = {'hidden_layer': [130], 'dropout_p': [0.3], 'batch_size': [128], 'lr': [0.0001]}
+best_params_dict = {'hidden_layer': [130], 'dropout_p': [0.5], 'batch_size': [128], 'lr': [1e-3]}
 print('searching parameters...\n')
 best_tagger = parameters_search(best_params_dict, 10, train_dataset, dev_dataset, mission='NER', pre_trained_emb=pre_embedding)
 plot_results(best_tagger['train_losses'], best_tagger['val_losses'],\
@@ -354,7 +354,7 @@ pos_params_dict = { # for debuging i used only one item per and very big batch
     }
 # best parameters:
 # {'hidden_layer': 90, 'dropout_p': 0.2, 'batch_size': 64, 'lr': 5e-05, 'nepochs': 8}
-best_pos_params_dict = {'hidden_layer': [90], 'dropout_p': [0.2], 'batch_size': [64], 'lr': [5e-05]}
+best_pos_params_dict = {'hidden_layer': [150], 'dropout_p': [0.5], 'batch_size': [64], 'lr': [1e-3]}
 print('searching parameters...\n')
 best_tagger_pos = parameters_search(best_pos_params_dict, 10, train_dataset_pos, dev_dataset_pos, mission='POS', pre_trained_emb=pre_embedding)
 plot_results(best_tagger_pos['train_losses'], best_tagger_pos['val_losses'],\
