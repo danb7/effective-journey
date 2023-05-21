@@ -54,11 +54,20 @@ def use_pretrained(vocab, embeddings):
 
 
 class Vocabulary:
-    def __init__(self, is_labels=False):
+    def __init__(self, is_labels=False, sub_word=None):
+        '''
+        sub_word : str, default None
+            [None | prefix | suffix]
+        '''
         self.is_labels = is_labels
+        self.sub_word = sub_word
         self.itos = {}
         if not is_labels:
             self.itos = {0: UNK}
+            if sub_word=='prefix':
+                self.itos = {0: UNK[:3]}
+            elif sub_word=='suffix':
+                self.itos = {0: UNK[-3:]}
         # initiate the token to index dict
         self.stoi = {k: j for j, k in self.itos.items()}
 
@@ -71,13 +80,19 @@ class Vocabulary:
     def tokenizer(text):  # split on space and converts the sentence to list of words
         return [tok.strip() for tok in text.split(' ')]
 
-    def build_vocabulary(self, data, is_sentence=True):
+    def build_vocabulary(self, data):
         frequencies = {}  # init the freq dict
         idx = 0 if self.is_labels else 1  # index from which we want our dict to start. We already used 4 indexes for pad, start, end, unk
 
         # calculate freq of words
         for sentence in data:
             for word in self.tokenizer(sentence):
+                prefix = word[:3]
+                suffix = word[-3:]
+                if self.sub_word=='prefix':
+                    word = prefix
+                elif self.sub_word=='suffix':
+                    word = suffix
                 if word not in frequencies.keys():
                     frequencies[word] = 1
                 else:
@@ -187,6 +202,21 @@ def create_vocabs(train_data):
     vocab.build_vocabulary(sentences)
     vocab_labels.build_vocabulary(labels)
     return vocab, vocab_labels
+
+def create_pre_suf_vocabs(vocab):
+    pre_vocab = Vocabulary(sub_word='prefix')
+    suf_vocab = Vocabulary(sub_word='suffix')
+    pre_vocab.build_vocabulary(vocab.stoi.keys())
+    suf_vocab.build_vocabulary(vocab.stoi.keys())
+    return pre_vocab, suf_vocab
+
+def create_pre_suf_vocabs2(train_data):
+    sentences, _ = zip(*train_data)
+    pre_vocab = Vocabulary(sub_word='prefix')
+    suf_vocab = Vocabulary(sub_word='suffix')
+    pre_vocab.build_vocabulary(sentences)
+    suf_vocab.build_vocabulary(sentences)
+    return pre_vocab, suf_vocab
 
 def check_if_a_number(word, vocab):
 
