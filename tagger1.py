@@ -27,17 +27,33 @@ class Tagging_Dataset(Dataset):
 
 
 class tagger(nn.Module):
-    def __init__(self, vocab, embedding_dim, hidden_layer, target_size, dropout_p, pre_trained_embeddings=None,
-                 prefix_vocab=None, suffix_vocab=None, WINDOW_SIZE=5):
+    def __init__(self, vocab, embedding_dim, hidden_layer, target_size, dropout_p, 
+                 pre_trained_embeddings=None, prefix_vocab=None, suffix_vocab=None, 
+                 cnn_vocab=None, char_embedding_dim=30, cnn_window_size=3, cnn_padding_size=2, 
+                 dropout_p_cnn=0.5, WINDOW_SIZE=5):
         super().__init__()
         self.embedding_dim = embedding_dim
         self.vocab = vocab
         self.prefix_vocab = prefix_vocab
         self.suffix_vocab = suffix_vocab
+        self.cnn_vocab = cnn_vocab
         self.word_embeddings = nn.Embedding(len(self.vocab), embedding_dim)
         if prefix_vocab:
             self.prefix_embeddings = nn.Embedding(len(self.prefix_vocab), embedding_dim)
             self.suffix_embeddings = nn.Embedding(len(self.suffix_vocab), embedding_dim)
+        elif cnn_vocab:
+            self.char_embeddings = nn.Embedding(len(self.cnn_vocab), char_embedding_dim, padding_idx=0)
+            self.cnn_layer = nn.Conv2d(in_channels=1, out_channels=max(self.cnn_vocab.stoi.keys(), key=len), 
+                                       kernel_size=(cnn_window_size,char_embedding_dim), 
+                                       padding=(cnn_padding_size,0))
+            conv2d_layer_shape = get_conv2d_layer_shape(self.cnn_layer, (max(self.cnn_vocab.stoi.keys(), key=len), char_embedding_dim))
+            self.char_maxpool_layer = torch.nn.MaxPool2d(kernel_size=(conv2d_layer_shape[0], 1))
+            self.dropout_cnn_layer = torch.nn.Dropout(p=dropout_p_cnn)
+            self.fc_input_dim = (self.WINDOW_SIZE *
+                                 (self.embedding_dim +
+                                  self.cnn_char_num_filters *
+                                  self.maxpool2d_layer_shape[2] *
+                                  self.maxpool2d_layer_shape[3]))
         self.fc1 = nn.Linear(embedding_dim * WINDOW_SIZE, hidden_layer)
         self.fc2 = nn.Linear(hidden_layer, target_size)
         self.activation = nn.Tanh()
@@ -48,12 +64,13 @@ class tagger(nn.Module):
         torch.manual_seed(42)
         if pre_trained_embeddings is not None:
             self.word_embeddings.weight.data.copy_(torch.from_numpy(pre_trained_embeddings))
-        elif prefix_vocab:
-            nn.init.xavier_uniform_(self.prefix_embeddings.weight)
-            nn.init.xavier_uniform_(self.suffix_embeddings.weight)
-            nn.init.xavier_uniform_(self.word_embeddings.weight)
         else:
             nn.init.xavier_uniform_(self.word_embeddings.weight)
+        if prefix_vocab:
+            nn.init.xavier_uniform_(self.prefix_embeddings.weight)
+            nn.init.xavier_uniform_(self.suffix_embeddings.weight)
+        elif cnn_vocab:
+            nn.init.kaiming_uniform_(self.char_embeddings) # check in/out
         nn.init.xavier_uniform_(self.fc1.weight, gain=torch.nn.init.calculate_gain('tanh'))
         nn.init.constant_(self.fc1.bias, 0)
         nn.init.xavier_uniform_(self.fc2.weight)
@@ -66,6 +83,8 @@ class tagger(nn.Module):
             word_emb = self.word_embeddings(windows).view(-1, self.embedding_dim * self.WINDOW_SIZE)
             suffix_emb = self.suffix_embeddings(suffix_window).view(-1, self.embedding_dim * self.WINDOW_SIZE)
             x = prefix_emb + word_emb + suffix_emb
+        elif self.cnn_vocab:
+            x = self.char_embeddings(windows).view(-1, self.embedding_dim * self.WINDOW_SIZE)
         else:
             x = self.word_embeddings(windows).view(-1, self.embedding_dim * self.WINDOW_SIZE)
         x = self.fc1(x)
@@ -106,7 +125,7 @@ def accuracy(pred, tags, mission):
     return corrects, total
 
 
-def epoch_train(model, optimizer, criterion, train_loader, val_loader, mission):
+def epoch_train(model, optimizer, criterion, train_loader, val_loader, mission, grad_clip=0):
     running_loss = 0
     running_corrects, running_total = 0, 0
     model.train()
@@ -117,6 +136,8 @@ def epoch_train(model, optimizer, criterion, train_loader, val_loader, mission):
         running_loss += loss.item()
         loss.backward()
         optimizer.step()
+        if grad_clip > 0:
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=grad_clip)
 
         pred = torch.argmax(output, 1)
         batch_corrects, batch_total = accuracy(pred, tags, mission)
@@ -188,7 +209,7 @@ def save_test_file(test_data, predictions_labels, save_path=None, seperator=' ')
         f.write("\n")
         
 
-def train(model, optimizer, criterion, nepochs, train_loader, val_loader, mission, return_best_epoch=True, optimize='accuracy'):
+def train(model, optimizer, criterion, nepochs, train_loader, val_loader, mission, scheduler=None, grad_clip=0, return_best_epoch=True, optimize='accuracy'):
     '''Train the model epoch by epoch.
 
     Parameters
@@ -219,7 +240,7 @@ def train(model, optimizer, criterion, nepochs, train_loader, val_loader, missio
     best_val_loss = 9999999
     best_val_accuracy = -9999999
     for e in range(nepochs):
-        loss, acc = epoch_train(model, optimizer, criterion, train_loader, val_loader, mission)
+        loss, acc = epoch_train(model, optimizer, criterion, train_loader, val_loader, mission, grad_clip)
         val_loss, val_acc = evaluate(model, criterion, val_loader, mission)
         train_losses += [loss]
         val_losses += [val_loss]
@@ -235,6 +256,8 @@ def train(model, optimizer, criterion, nepochs, train_loader, val_loader, missio
                 if val_loss < best_val_loss:
                     best_val_loss = val_loss
                     best_model = model
+        if scheduler:
+            scheduler.step()
 
         print("Epoch: {}/{}.. ".format(e + 1, nepochs),
               "Training Loss: {:.3f}.. ".format(train_losses[-1]),
@@ -247,7 +270,7 @@ def train(model, optimizer, criterion, nepochs, train_loader, val_loader, missio
         return train_losses, val_losses, train_accs, val_accs
 
 
-def parameters_search(params_dict, n_eopchs, train_dataset, dev_dataset, vocab, return_best_epoch=True, optimize='accuracy', mission='NER', pre_trained_emb=None, pre_vocab=None, suf_vocab=None):
+def parameters_search(params_dict, n_eopchs, train_dataset, dev_dataset, vocab, return_best_epoch=True, optimize='accuracy', mission='NER', pre_trained_emb=None, pre_vocab=None, suf_vocab=None, cnn_vocab=None):
     '''Exhaustive search over specified parameter values
 
     Parameters
@@ -296,12 +319,21 @@ def parameters_search(params_dict, n_eopchs, train_dataset, dev_dataset, vocab, 
         dev_data_loader = DataLoader(dev_dataset,
                                 batch_size=config['batch_size'], shuffle=True)
         if mission == 'NER':
-            model = tagger(vocab, 50, config['hidden_layer'], len(vocab_labels), config['dropout_p'], pre_trained_emb, prefix_vocab=pre_vocab, suffix_vocab=suf_vocab)
+            model = tagger(vocab, 50, config['hidden_layer'], len(vocab_labels), config['dropout_p'], pre_trained_emb, prefix_vocab=pre_vocab, suffix_vocab=suf_vocab, cnn_vocab=cnn_vocab)
         else:
-            model = tagger(vocab_pos, 50, config['hidden_layer'], len(vocab_labels_pos), config['dropout_p'], pre_trained_emb, prefix_vocab=pre_vocab, suffix_vocab=suf_vocab)
+            model = tagger(vocab_pos, 50, config['hidden_layer'], len(vocab_labels_pos), config['dropout_p'], pre_trained_emb, prefix_vocab=pre_vocab, suffix_vocab=suf_vocab, cnn_vocab=cnn_vocab)
         criterion = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(model.parameters(), lr=config['lr'])
-        train_losses, val_losses, train_accuracy, val_accuracy, best_config_model = train(model, optimizer, criterion, n_eopchs, train_data_loader, dev_data_loader, mission)
+        if cnn_vocab:
+            optimizer = optim.SGD(model.parameters(), lr=config['lr'], momentum=0.9)
+            initial_learning_rate = 0.015 if mission=='NER' else 0.01
+            lambda_lr = lambda epoch: initial_learning_rate/(1+0.05 *epoch)
+            lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda_lr)
+            grad_clip = 5
+        else:
+            lr_scheduler = None
+            grad_clip = 0
+            optimizer = optim.Adam(model.parameters(), lr=config['lr'])
+        train_losses, val_losses, train_accuracy, val_accuracy, best_config_model = train(model, optimizer, criterion, n_eopchs, train_data_loader, dev_data_loader, mission, lr_scheduler, grad_clip=grad_clip)
         if optimize=='accuracy':
             best_acc_eopch = np.argmax(val_accuracy)
             if val_accuracy[best_acc_eopch] > best_config_val_accuracy:
@@ -330,12 +362,15 @@ def parameters_search(params_dict, n_eopchs, train_dataset, dev_dataset, vocab, 
 
 print("___________________________________NER__________________________________________________")
 parser = argparse.ArgumentParser(description="NLP tagging task")
+group = parser.add_mutually_exclusive_group()
 parser.add_argument("-p", "--pretrained", action="store_true")
-parser.add_argument("-s", "--subword", action="store_true")
+group.add_argument("-s", "--subword", action="store_true")
+group.add_argument("-c", "--cnn", action="store_true")
 args = parser.parse_args()
 pre_embedding = None
 pre_vocab = None
 suf_vocab = None
+char_vocab = None
 
 train_data = read_data('ner/train', '\t', lower=args.pretrained)
 dev_data = read_data('ner/dev', '\t', lower=args.pretrained)
@@ -348,6 +383,10 @@ if args.pretrained:
 if args.subword:
     print('using subword embedding\n')
     pre_vocab, suf_vocab = create_pre_suf_vocabs(vocab)
+
+if args.cnn:
+    print('using character embedding\n')
+    char_vocab = create_cnn_vocabs(vocab)
 
 
 train_dataset = Tagging_Dataset(data_to_window(vocab, vocab_labels, train_data))
@@ -363,7 +402,7 @@ params_dict = {
 # {'hidden_layer': 130, 'dropout_p': 0.3, 'batch_size': 128, 'lr': 0.0001, 'nepochs': 6}
 best_params_dict = {'hidden_layer': [130], 'dropout_p': [0.3], 'batch_size': [128], 'lr': [1e-4]}
 print('searching parameters...\n')
-best_tagger = parameters_search(best_params_dict, 6, train_dataset, dev_dataset, vocab, mission='NER', pre_trained_emb=pre_embedding, pre_vocab=pre_vocab, suf_vocab=suf_vocab)
+best_tagger = parameters_search(best_params_dict, 8, train_dataset, dev_dataset, vocab, mission='NER', pre_trained_emb=pre_embedding, pre_vocab=pre_vocab, suf_vocab=suf_vocab, cnn_vocab=char_vocab)
 plot_results(best_tagger['train_losses'], best_tagger['val_losses'],\
     best_tagger['train_accuracy'], best_tagger['val_accuracy'], main_title=f'NER_P-{args.pretrained}_S-{args.subword}')
 print(f'best parameters:\n{best_tagger["best_config"]}')
@@ -379,14 +418,15 @@ print("___________________________________POS___________________________________
 train_data_pos = read_data('pos/train', ' ', lower=args.pretrained)
 dev_data_pos = read_data('pos/dev', ' ', lower=args.pretrained)
 vocab_pos, vocab_labels_pos = create_vocabs(train_data_pos)
-
+pre_vocab_pos = None
+suf_vocab_pos = None
 if args.pretrained:
     print('using pre-trained embedding\n')
     vocab_pos, pre_embedding = use_pretrained('vocab.txt', 'wordVectors.txt')
 
 if args.subword:
     print('using subword embedding\n')
-    pre_vocab_pos, suf_vocab_pos = create_pre_suf_vocabs(train_data_pos)
+    pre_vocab_pos, suf_vocab_pos = create_pre_suf_vocabs(vocab_pos)
 
 train_dataset_pos = Tagging_Dataset(data_to_window(vocab_pos, vocab_labels_pos, train_data_pos))
 dev_dataset_pos = Tagging_Dataset(data_to_window(vocab_pos, vocab_labels_pos, dev_data_pos))
@@ -403,7 +443,7 @@ best_pos_params_dict = {'hidden_layer': [90], 'dropout_p': [0.2], 'batch_size': 
 print('searching parameters...\n')
 best_tagger_pos = parameters_search(best_pos_params_dict, 8, train_dataset_pos, dev_dataset_pos, vocab_pos, mission='POS', pre_trained_emb=pre_embedding, pre_vocab=pre_vocab_pos, suf_vocab=suf_vocab_pos)
 plot_results(best_tagger_pos['train_losses'], best_tagger_pos['val_losses'],\
-    best_tagger_pos['train_accuracy'], best_tagger_pos['val_accuracy'], main_title='POS')
+    best_tagger_pos['train_accuracy'], best_tagger_pos['val_accuracy'], main_title=f'POS_P-{args.pretrained}_S-{args.subword}')
 print(f'best parameters:\n{best_tagger_pos["best_config"]}')
 
 # saving test predictions

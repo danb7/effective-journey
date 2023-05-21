@@ -1,3 +1,4 @@
+import math
 import numpy as np
 from matplotlib import pyplot as plt
 
@@ -210,13 +211,11 @@ def create_pre_suf_vocabs(vocab):
     suf_vocab.build_vocabulary(vocab.stoi.keys())
     return pre_vocab, suf_vocab
 
-def create_pre_suf_vocabs2(train_data):
-    sentences, _ = zip(*train_data)
-    pre_vocab = Vocabulary(sub_word='prefix')
-    suf_vocab = Vocabulary(sub_word='suffix')
-    pre_vocab.build_vocabulary(sentences)
-    suf_vocab.build_vocabulary(sentences)
-    return pre_vocab, suf_vocab
+def create_cnn_vocabs(vocab):
+    characters = list(set(list((''.join(vocab.stoi.keys())))))
+    cnn_vocab = Vocabulary()
+    cnn_vocab.build_vocabulary(characters)
+    return cnn_vocab
 
 def check_if_a_number(word, vocab):
 
@@ -237,3 +236,37 @@ def check_if_a_number(word, vocab):
         return "NNNUMMM"
 
     return None
+
+
+def get_conv2d_layer_shape(layer, in_shape):
+    """Return the shape of torch.nn.Conv2d layer.
+
+    Parameters
+    ----------
+    layer: The Conv2d layer.
+    in_shape: The input shape.
+
+    returns
+    -------
+    The shape of the Conv2d layer
+    """
+    H_in, W_in = in_shape
+
+    kernel_size = (layer.kernel_size, layer.kernel_size) if isinstance(layer.kernel_size, int) else layer.kernel_size
+    dilation = (layer.dilation, layer.dilation) if isinstance(layer.dilation, int) else layer.dilation
+    stride = (layer.stride, layer.stride) if isinstance(layer.stride, int) else layer.stride
+
+    if isinstance(layer.padding, str):
+        if layer.padding == "valid":
+            H_out = math.floor((H_in + dilation[0] * (kernel_size[0]-1) - 1) / stride[0] + 1)
+            W_out = math.floor((W_in + dilation[1] * (kernel_size[1]-1) - 1) / stride[1] + 1)
+        elif layer.padding == "same":
+            H_out = H_in
+            W_out = W_in
+    else:
+        padding = (layer.padding, layer.padding) if isinstance(layer.padding, int) else layer.padding
+
+        H_out = math.floor((H_in + 2*padding[0] - dilation[0] * (kernel_size[0]-1) - 1) / stride[0] + 1)
+        W_out = math.floor((W_in + 2*padding[1] - dilation[1] * (kernel_size[1]-1) - 1) / stride[1] + 1)
+
+    return (H_out, W_out)
