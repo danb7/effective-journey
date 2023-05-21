@@ -101,6 +101,9 @@ class Vocabulary:
         for token in tokenized_text:
             if token in self.stoi.keys():
                 numericalized_text.append(self.stoi[token])
+            elif check_if_a_number(token, self.stoi.keys()) in self.stoi.keys():
+                format_digits = check_if_a_number(token, self.stoi.keys())
+                numericalized_text.append(self.stoi[format_digits])
             else:  # out-of-vocab words are represented by UNK token index
                 numericalized_text.append(self.stoi['<UNK>'])
 
@@ -188,3 +191,23 @@ def create_vocabs(train_data):
     vocab.build_vocabulary(sentences)
     vocab_labels.build_vocabulary(labels)
     return vocab, vocab_labels
+
+def check_if_a_number(word, vocab):
+
+    # If a number is of pattern 'DGDG', 'DG.DG', '.DG', '+DG', '-DG' and etc.
+    if all(ch.isdigit() or ch == '.' or ch == '+' or ch == '-' for ch in word):
+        pattern = ""
+
+        # Replace each character with 'DG'
+        for ch in word:
+            pattern += 'DG' if ch.isdigit() else ch
+
+        # If this pattern is in the pre-trained vocabulary return it; Otherwise, return the pattern 'NNNUMMM'
+        pattern = pattern if pattern in vocab else 'NNNUMMM'
+        return pattern
+
+    # If a number is of pattern '_ ,_ _' ; '_ ,_ _ _, _ _ _' and etc return the pattern 'NNNUMMM'.
+    elif all(ch.isdigit() or ch == ',' for ch in word) and any(ch.isdigit() for ch in word):
+        return "NNNUMMM"
+
+    return None
