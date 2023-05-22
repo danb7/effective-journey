@@ -18,24 +18,11 @@ class CNN(nn.Module):
     def forward(self, text, text_length):
         embedded = self.embbeding(text)
         embedded = embedded.unsqueeze(1)
-
         convolution = [conv(embedded) for conv in self.convs]
-        print(embedded.shape)
-
-        print('___________________________')
         max1 = self.max_pool1(convolution[0].squeeze())
-        print(max1.shape)
         max2 = self.max_pool1(convolution[0].squeeze())
-        print(max2.shape)
         cat = torch.cat((max1, max2), dim=2)
-        print(cat.shape)
         x = cat.view(cat.shape[0], -1)
-        print(x.shape)
         x = self.fc1(self.relu(x))
-        print(x.shape)
         x = self.dropout(x)
-        print(x.shape)
-        print('___________________________')
-
-
         return x
