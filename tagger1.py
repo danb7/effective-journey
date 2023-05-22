@@ -44,9 +44,9 @@ class tagger(nn.Module):
             self.prefix_embeddings = nn.Embedding(len(self.prefix_vocab), embedding_dim)
             self.suffix_embeddings = nn.Embedding(len(self.suffix_vocab), embedding_dim)
         elif cnn_vocab:
-            char_longest = len(max(self.vocab.stoi.keys(), key=len))
-            self.cnn = CNN(len(cnn_vocab), char_embedding_dim, n_filters, cnn_window_size, dropout_p_cnn, char_longest, cnn_padding_size)
-            self.fc1_in_dim = embedding_dim * WINDOW_SIZE + n_filters*self.cnn.maxpool_layer_shape[0]*self.cnn.maxpool_layer_shape[1]
+            self.char_longest = len(max(self.vocab.stoi.keys(), key=len))
+            self.cnn = CNN(len(cnn_vocab), char_embedding_dim, n_filters, cnn_window_size, dropout_p_cnn, self.char_longest, cnn_padding_size)
+            self.fc1_in_dim = embedding_dim * WINDOW_SIZE + 150#n_filters*self.cnn.maxpool_layer_shape[0]*self.cnn.maxpool_layer_shape[1]
         self.fc1 = nn.Linear(self.fc1_in_dim, hidden_layer)
         self.fc2 = nn.Linear(hidden_layer, target_size)
         self.activation = nn.Tanh()
@@ -62,8 +62,6 @@ class tagger(nn.Module):
         if prefix_vocab:
             nn.init.xavier_uniform_(self.prefix_embeddings.weight)
             nn.init.xavier_uniform_(self.suffix_embeddings.weight)
-        # elif cnn_vocab:
-        #     nn.init.kaiming_uniform_(self.char_embeddings)  # check in/out
         nn.init.xavier_uniform_(self.fc1.weight, gain=torch.nn.init.calculate_gain('tanh'))
         nn.init.constant_(self.fc1.bias, 0)
         nn.init.xavier_uniform_(self.fc2.weight)
@@ -78,10 +76,9 @@ class tagger(nn.Module):
             x = prefix_emb + word_emb + suffix_emb
         elif self.cnn_vocab:
             word_emb = self.word_embeddings(windows).view(-1, self.embedding_dim * self.WINDOW_SIZE)
-            chars, longest = self._get_chars(windows)
+            chars = self._get_chars(windows, self.char_longest)
             cnnt = self.cnn(chars)
-            print("hereee")
-            x = torch.cat((word_emb, cnnt), dim=2)
+            x = torch.cat((word_emb, cnnt), dim=1)
         else:
             x = self.word_embeddings(windows).view(-1, self.embedding_dim * self.WINDOW_SIZE)
         x = self.fc1(x)
@@ -102,22 +99,27 @@ class tagger(nn.Module):
             suffix_list.append(suffix)
         return torch.LongTensor(prefix_list), torch.LongTensor(suffix_list)
 
-    def _get_chars(self, windows):
-        longest_word = -1
-        words = []
+    def _get_chars(self, windows, char_longest):
+        windows_chared = []
         for window in windows:
+            words = []
             for word in window:
                 word = self.vocab.itos[word.item()]
                 word_in_chars = [self.cnn_vocab.stoi[char] for char in word]
-                word_in_chars = [0, 0] + word_in_chars + [0, 0]
+                word_in_chars = self._pad_word(word_in_chars, self.char_longest)
                 words.append(word_in_chars)
-                if len(word_in_chars) > longest_word:
-                    longest_word = len(word_in_chars)
-        # pad words to same length
-        for word in words:
-            word += [0] * (longest_word - len(word))
-        return torch.tensor(words), longest_word
-
+            windows_chared.append(words)
+        return torch.tensor(windows_chared)
+    
+    def _pad_word(self, word, char_longest):
+        # pad words to max length
+        if len(word) < char_longest:
+            prefix_pad = (char_longest - len(word)) // 2
+            suffix_pad = char_longest - len(word) - prefix_pad
+            word = [0] * prefix_pad + word + [0] * suffix_pad
+        else:
+            word = word[:char_longest]
+        return word
 
 def accuracy(pred, tags, mission):
     corrects = 0
@@ -342,7 +344,7 @@ def parameters_search(params_dict, n_eopchs, train_dataset, dev_dataset, vocab, 
             model = tagger(vocab_pos, 50, config['hidden_layer'], len(vocab_labels_pos), config['dropout_p'],
                            pre_trained_emb, prefix_vocab=pre_vocab, suffix_vocab=suf_vocab, cnn_vocab=cnn_vocab)
         criterion = nn.CrossEntropyLoss()
-        if cnn_vocab:
+        if False:
             optimizer = optim.SGD(model.parameters(), lr=config['lr'], momentum=0.9)
             initial_learning_rate = 0.015 if mission == 'NER' else 0.01
             lambda_lr = lambda epoch: initial_learning_rate / (1 + 0.05 * epoch)

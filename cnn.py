@@ -8,6 +8,7 @@ class CNN(nn.Module):
                  char_longest=20, char_padding=2):
         super().__init__()
         self.embbeding = nn.Embedding(vocab_size, embed_size, padding_idx=0)
+        nn.init.kaiming_uniform_(self.embbeding.weight)  # check in/out
         self.conv = nn.Conv2d(in_channels=1, out_channels=n_filters, kernel_size=(filter_size, embed_size), padding=(char_padding,0), stride=(1,1))
         self.char_longest = char_longest
         self.conv2d_layer_shape = self._get_conv2d_layer_shape((char_longest,embed_size))
@@ -16,17 +17,18 @@ class CNN(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, text):
-        embedded = self.embbeding(text)
-        embedded = embedded.unsqueeze(1)
-        convolution = self.conv(embedded)
-        max1 = self.max_pool1(convolution.squeeze())
-        # max2 = self.max_pool1(convolution[0].squeeze())
-        # cat = torch.cat((max1, max2), dim=2)
-        # x = cat.view(cat.shape[0], -1)
-        x = self.fc1(max1)
-        x = self.dropout(x)
-        return x
-
+        cnn_char_features = []
+        for i in range(text.shape[1]):
+            word_chars = text[:, i, :]
+            word_chars = word_chars.unsqueeze(1)
+            embedded = self.embbeding(word_chars)
+            embedded = self.dropout(embedded)
+            # embedded = embedded.unsqueeze(1)
+            convolution = self.conv(embedded)
+            max1 = self.max_pool1(convolution).view(text.shape[0],-1)
+            cnn_char_features.append(max1)#.unsqueeze(1))
+        cnn_char_features = torch.cat(cnn_char_features, dim=1)
+        return cnn_char_features
     def _get_conv2d_layer_shape(self, in_shape):
         """Return the shape of torch.nn.Conv2d layer.
 
