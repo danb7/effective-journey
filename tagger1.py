@@ -58,8 +58,7 @@ class tagger(nn.Module):
         #                           self.maxpool2d_layer_shape[2] *
         #                           self.maxpool2d_layer_shape[3]))
         elif cnn_vocab:
-            self.cnn = CNN(len(cnn_vocab), char_embedding_dim, n_filters, [3], 3, 130, 10, 0.5)
-            print(self.cnn)
+            self.cnn = CNN(len(cnn_vocab), char_embedding_dim, n_filters, [3], 3, dropout_p_cnn)
         self.fc1 = nn.Linear(embedding_dim * WINDOW_SIZE, hidden_layer)
         self.fc2 = nn.Linear(hidden_layer, target_size)
         self.activation = nn.Tanh()
