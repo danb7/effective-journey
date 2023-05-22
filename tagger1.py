@@ -39,27 +39,15 @@ class tagger(nn.Module):
         self.suffix_vocab = suffix_vocab
         self.cnn_vocab = cnn_vocab
         self.word_embeddings = nn.Embedding(len(self.vocab), embedding_dim)
-
+        self.fc1_in_dim = embedding_dim * WINDOW_SIZE
         if prefix_vocab:
             self.prefix_embeddings = nn.Embedding(len(self.prefix_vocab), embedding_dim)
             self.suffix_embeddings = nn.Embedding(len(self.suffix_vocab), embedding_dim)
-        # elif cnn_vocab:
-        #     self.char_embeddings = nn.Embedding(len(self.cnn_vocab), char_embedding_dim, padding_idx=0)
-        #     self.cnn_layer = nn.Conv2d(in_channels=1, out_channels=max(self.cnn_vocab.stoi.keys(), key=len),
-        #                                kernel_size=(cnn_window_size, char_embedding_dim),
-        #                                padding=(cnn_padding_size, 0))
-        #     conv2d_layer_shape = get_conv2d_layer_shape(self.cnn_layer,
-        #                                                 (max(self.cnn_vocab.stoi.keys(), key=len), char_embedding_dim))
-        #     self.char_maxpool_layer = torch.nn.MaxPool2d(kernel_size=(conv2d_layer_shape[0], 1))
-        #     self.dropout_cnn_layer = torch.nn.Dropout(p=dropout_p_cnn)
-        #     self.fc_input_dim = (self.WINDOW_SIZE *
-        #                          (self.embedding_dim +
-        #                           self.cnn_char_num_filters *
-        #                           self.maxpool2d_layer_shape[2] *
-        #                           self.maxpool2d_layer_shape[3]))
         elif cnn_vocab:
-            self.cnn = CNN(len(cnn_vocab), char_embedding_dim, n_filters, [3], 3, dropout_p_cnn)
-        self.fc1 = nn.Linear(embedding_dim * WINDOW_SIZE, hidden_layer)
+            char_longest = len(max(self.vocab.stoi.keys(), key=len))
+            self.cnn = CNN(len(cnn_vocab), char_embedding_dim, n_filters, cnn_window_size, dropout_p_cnn, char_longest, cnn_padding_size)
+            self.fc1_in_dim = embedding_dim * WINDOW_SIZE + n_filters*self.cnn.maxpool_layer_shape[0]*self.cnn.maxpool_layer_shape[1]
+        self.fc1 = nn.Linear(self.fc1_in_dim, hidden_layer)
         self.fc2 = nn.Linear(hidden_layer, target_size)
         self.activation = nn.Tanh()
         self.dropout1 = nn.Dropout(p=dropout_p)
@@ -89,11 +77,11 @@ class tagger(nn.Module):
             suffix_emb = self.suffix_embeddings(suffix_window).view(-1, self.embedding_dim * self.WINDOW_SIZE)
             x = prefix_emb + word_emb + suffix_emb
         elif self.cnn_vocab:
+            word_emb = self.word_embeddings(windows).view(-1, self.embedding_dim * self.WINDOW_SIZE)
             chars, longest = self._get_chars(windows)
-            cnnt = self.cnn(chars, longest)
+            cnnt = self.cnn(chars)
             print("hereee")
-            # x = self.char_embeddings(cnnt).view(-1, self.embedding_dim * self.WINDOW_SIZE)
-            x = cnnt
+            x = torch.cat((word_emb, cnnt), dim=2)
         else:
             x = self.word_embeddings(windows).view(-1, self.embedding_dim * self.WINDOW_SIZE)
         x = self.fc1(x)
@@ -411,7 +399,6 @@ char_vocab = None
 train_data = read_data('ner/train', '\t', lower=args.pretrained)
 dev_data = read_data('ner/dev', '\t', lower=args.pretrained)
 vocab, vocab_labels = create_vocabs(train_data)
-
 if args.pretrained:
     print('using pre-trained embedding\n')
     vocab, pre_embedding = use_pretrained('vocab.txt', 'wordVectors.txt')
@@ -420,7 +407,7 @@ if args.subword:
     print('using subword embedding\n')
     pre_vocab, suf_vocab = create_pre_suf_vocabs(vocab)
 
-if args.cnn:
+if True:#args.cnn:
     print('using character embedding\n')
     char_vocab = create_cnn_vocabs(vocab)
 

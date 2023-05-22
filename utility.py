@@ -270,3 +270,42 @@ def get_conv2d_layer_shape(layer, in_shape):
         W_out = math.floor((W_in + 2*padding[1] - dilation[1] * (kernel_size[1]-1) - 1) / stride[1] + 1)
 
     return (H_out, W_out)
+
+
+def get_maxpool2d_layer_shape(layer, in_shape):
+    """
+    @brief: Return the shape of torch.nn.MaxPool2d layer.
+
+    @param layer: The MaxPool2d layer.
+    @param in_shape: The input shape.
+
+    @return: The shape of the MaxPool2d layer.
+    """
+    H_in, W_in = in_shape
+
+    kernel_size = (layer.kernel_size, layer.kernel_size) if isinstance(layer.kernel_size, int) else layer.kernel_size
+    padding = (layer.padding, layer.padding) if isinstance(layer.padding, int) else layer.padding
+
+    if hasattr(layer, 'dilation'):
+        dilation = (layer.dilation, layer.dilation) if isinstance(layer.dilation, int) else layer.dilation
+    else:
+        dilation = (1, 1)
+
+    stride = (layer.stride, layer.stride) if isinstance(layer.stride, int) else layer.stride
+
+    round_op = round_op = math.ceil if layer.ceil_mode else math.floor
+
+    if isinstance(layer.padding, str):
+        if layer.padding == "valid":
+            H_out = round_op((H_in + dilation[0] * (kernel_size[0]-1) - 1) / stride[0] + 1)
+            W_out = round_op((W_in + dilation[1] * (kernel_size[1]-1) - 1) / stride[1] + 1)
+        elif layer.padding == "same":
+            H_out = H_in
+            W_out = W_in
+    else:
+        padding = (layer.padding, layer.padding) if isinstance(layer.padding, int) else layer.padding
+
+        H_out = round_op((H_in + 2*padding[0] - dilation[0] * (kernel_size[0]-1) - 1) / stride[0] + 1)
+        W_out = round_op((W_in + 2*padding[1] - dilation[1] * (kernel_size[1]-1) - 1) / stride[1] + 1)
+
+    return (H_out, W_out)
