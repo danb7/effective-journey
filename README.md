@@ -3,7 +3,7 @@ Window-based Tagging
 
 CLI usage
 ---------
-'''console
+ ```console
 python .\tagger1.py --help
 
 
@@ -19,7 +19,7 @@ optional arguments:
 
 if no arguments pass: run in default mode. no special embedding method, just A simple        
 window-based tagger
-'''
+ ```
 
 running part 1
 --------------
