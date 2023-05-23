@@ -390,7 +390,12 @@ def parameters_search(params_dict, n_eopchs, train_dataset, dev_dataset, vocab, 
 
 
 print("___________________________________NER__________________________________________________")
-parser = argparse.ArgumentParser(description="NLP tagging task")
+parser = argparse.ArgumentParser(description="A window-based tagger", 
+                                 epilog='''\
+                                 if no arguments pass:
+                                    run in default mode.
+                                    no special embedding method, just A simple window-based tagger
+                                 ''')
 group = parser.add_mutually_exclusive_group()
 parser.add_argument("-p", "--pretrained", action="store_true", help="run in pretrained mode")
 group.add_argument("-s", "--subword", action="store_true" , help="run in subword mode")
