@@ -449,7 +449,9 @@ params_dict = {
 # best_params_dict1 = {'hidden_layer': [130], 'dropout_p': [0.3], 'batch_size': [128], 'lr': [1e-4]}
 # best parameters3:
 # {'hidden_layer': 130, 'dropout_p': 0.4, 'batch_size': 64, 'lr': 0.001, 'nepochs': 5}
-best_params_dict = {'hidden_layer': [130], 'dropout_p': [0.4], 'batch_size': [12800], 'lr': [0.0004]}
+# best parameters4:
+# {}
+best_params_dict = {'hidden_layer': [130], 'dropout_p': [0.4], 'batch_size': [128], 'lr': [0.001]}
 print('searching parameters...\n')
 best_tagger = parameters_search(best_params_dict, 5, train_dataset, dev_dataset, vocab, mission='NER',
                                 pre_trained_emb=pre_embedding, pre_vocab=pre_vocab, suf_vocab=suf_vocab,
@@ -458,7 +460,7 @@ best_tagger = parameters_search(best_params_dict, 5, train_dataset, dev_dataset,
 # model = model = tagger(vocab, 50, best_params_dict['hidden_layer'][0], len(vocab_labels), best_params_dict['dropout_p'][0], pre_embedding,
 #                            prefix_vocab=pre_vocab, suffix_vocab=suf_vocab, cnn_vocab=char_vocab, n_filters=30)
 # model = torch.load('cnn_model.pt')
-analyze_filters(best_tagger['model'], analyze_type='a')
+# analyze_filters(best_tagger['model'], analyze_type='a')
 plot_results(best_tagger['train_losses'], best_tagger['val_losses'], \
              best_tagger['train_accuracy'], best_tagger['val_accuracy'],
              main_title=f'NER_P-{args.pretrained}_S-{args.subword}_C-{args.cnn}')
@@ -469,7 +471,7 @@ test_data = read_test_file('ner/test')
 test_dataset = TensorDataset(torch.LongTensor(data_to_window(vocab, vocab_labels, test_data, include_labels=False)))
 test_preds = test_prediction(best_tagger['model'], test_dataset)
 test_preds_labels = [vocab_labels.itos[p.item()] for p in test_preds]
-save_test_file(test_data, test_preds_labels, 'test3.ner', seperator='\t')
+# save_test_file(test_data, test_preds_labels, 'test4.ner', seperator='\t')
 
 print("___________________________________POS__________________________________________________")
 train_data_pos = read_data('pos/train', ' ', lower=args.pretrained)
@@ -500,14 +502,17 @@ pos_params_dict = {  # for debuging i used only one item per and very big batch
     'batch_size': [128, 64],
     'lr': [1e-4, 5e-5]
 }
-# best parameters:
+# best parameters1:
 # {'hidden_layer': 90, 'dropout_p': 0.2, 'batch_size': 64, 'lr': 5e-05, 'nepochs': 8}
 best_pos_params_dict1 = {'hidden_layer': [90], 'dropout_p': [0.2], 'batch_size': [64], 'lr': [5e-05]}
-# best parameters: 
+# best parameters3: 
 # {'hidden_layer': 130, 'dropout_p': 0.2, 'batch_size': 2048, 'lr': 0.001}
 best_pos_params_dict3 = {'hidden_layer': [130], 'dropout_p': [0.2], 'batch_size': [2048], 'lr': [0.001]}
+# best parameters4:
+# {}
+best_pos_params_dict = {'hidden_layer': [130], 'dropout_p': [0.2], 'batch_size': [2048], 'lr': [0.001]}
 print('searching parameters...\n')
-best_tagger_pos = parameters_search(best_pos_params_dict3, 8, train_dataset_pos, dev_dataset_pos, vocab_pos,
+best_tagger_pos = parameters_search(best_pos_params_dict, 8, train_dataset_pos, dev_dataset_pos, vocab_pos,
                                     mission='POS', pre_trained_emb=pre_embedding, pre_vocab=pre_vocab_pos,
                                     suf_vocab=suf_vocab_pos, cnn_vocab=char_vocab_pos, n_filters=30)
 
@@ -522,4 +527,4 @@ test_dataset_pos = TensorDataset(
     torch.LongTensor(data_to_window(vocab_pos, vocab_labels_pos, test_data_pos, include_labels=False)))
 test_preds_pos = test_prediction(best_tagger_pos['model'], test_dataset_pos)
 test_preds_labels_pos = [vocab_labels_pos.itos[p.item()] for p in test_preds_pos]
-save_test_file(test_data_pos, test_preds_labels_pos, 'test3.pos', seperator=' ')
+# save_test_file(test_data_pos, test_preds_labels_pos, 'test4.pos', seperator=' ')

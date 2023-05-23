@@ -5,9 +5,29 @@ running part 1
 --------------
 run tagger1.py
 
+running part 2
+--------------
+run top_k.py
+
+for requirments, see notes
+
 running part 3
 --------------
 run tagger1.py -p
+
+for requirments, see notes
+
+running part 4
+--------------
+run tagger1.py -s (optional also with -p)
+
+for requirments, see notes
+
+running part 5
+--------------
+run tagger1.py -c (optional also with -p)
+
+for requirments, see notes
 
 CLI usage
 ---------
@@ -48,9 +68,13 @@ window-based tagger
 
 Notes:
 ------
-The working directory should contain:
+for all parts, The working directory should contain:
 1) The POS data directory with train, dev and test files.
 2) The NER data directory with train, dev and test files.
 3) utility.py
+
+In addition, for part 2,3,4,5 that using pre-trained embedding, working directory should contain:
+vocab.txt
+wordVectors.txt
 
 output graphs are in the "graphs" directory
