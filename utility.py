@@ -328,14 +328,13 @@ def analyze_filters(cnn_model, analyze_type='top_k'):
         for i in range(num_filters):
             pass
     else:
-        pass
-        # filter_weights = cnn_model.conv.weight.data.numpy()
-        # num_filters = filter_weights.shape[0]
-        # fig, axs = plt.subplots(nrows=num_filters, ncols=1, figsize=(5, num_filters*2))
+        filter_weights = cnn_model.conv.weight.data.numpy()
+        num_filters = filter_weights.shape[0]
+        fig, axs = plt.subplots(nrows=num_filters, ncols=1, figsize=(5, num_filters*2))
 
-        # for i in range(num_filters):
-        #     axs[i].imshow(filter_weights[i, 0, :, :], cmap='gray')
-        #     axs[i].axis('off')
+        for i in range(num_filters):
+            axs[i].imshow(filter_weights[i, 0, :, :], cmap='gray')
+            axs[i].axis('off')
 
-        # plt.tight_layout()
-        # plt.show()
+        plt.tight_layout()
+        plt.show()

@@ -1,3 +1,6 @@
+STUDENT={'name': 'Peleg shefi_Daniel bazar',
+         'ID': '316523638_314708181'}
+
 import sys
 
 from matplotlib import pyplot as plt
@@ -34,10 +37,12 @@ class tagger(nn.Module):
                  dropout_p_cnn=0.5, WINDOW_SIZE=5):
         super().__init__()
         self.embedding_dim = embedding_dim
+        self.char_embedding_dim = char_embedding_dim
         self.vocab = vocab
         self.prefix_vocab = prefix_vocab
         self.suffix_vocab = suffix_vocab
         self.cnn_vocab = cnn_vocab
+        self.cnn_window_size = cnn_window_size
         self.word_embeddings = nn.Embedding(len(self.vocab), embedding_dim)
         self.fc1_in_dim = embedding_dim * WINDOW_SIZE
         if prefix_vocab:
@@ -45,8 +50,10 @@ class tagger(nn.Module):
             self.suffix_embeddings = nn.Embedding(len(self.suffix_vocab), embedding_dim)
         elif cnn_vocab:
             self.char_longest = len(max(self.vocab.stoi.keys(), key=len))
-            self.cnn = CNN(len(cnn_vocab), char_embedding_dim, n_filters, cnn_window_size, dropout_p_cnn, self.char_longest, cnn_padding_size)
-            self.fc1_in_dim = embedding_dim * WINDOW_SIZE + (n_filters*self.cnn.maxpool_layer_shape[0]*self.cnn.maxpool_layer_shape[1])*WINDOW_SIZE
+            # self.cnn = CNN(len(cnn_vocab), char_embedding_dim, n_filters, cnn_window_size, dropout_p_cnn, self.char_longest, cnn_padding_size)
+            # self.fc1_in_dim = embedding_dim * WINDOW_SIZE + (n_filters*self.cnn.maxpool_layer_shape[0]*self.cnn.maxpool_layer_shape[1])*WINDOW_SIZE
+            self.cnn2 = CNN(cnn_vocab, n_filters, char_embedding_dim, self.char_longest, cnn_window_size)
+            self.fc1_in_dim = (self.embedding_dim + self.char_embedding_dim) * WINDOW_SIZE
         self.fc1 = nn.Linear(self.fc1_in_dim, hidden_layer)
         self.fc2 = nn.Linear(hidden_layer, target_size)
         self.activation = nn.Tanh()
@@ -77,8 +84,13 @@ class tagger(nn.Module):
         elif self.cnn_vocab:
             word_emb = self.word_embeddings(windows).view(-1, self.embedding_dim * self.WINDOW_SIZE)
             chars = self._get_chars(windows, self.char_longest)
-            cnnt = self.cnn(chars)
-            x = torch.cat((word_emb, cnnt), dim=1)
+            # cnnt = self.cnn(chars)
+            # x = torch.cat((word_emb, cnnt), dim=1)
+            char_embed = [self.cnn2(chars[:, word_i, :]) for word_i in range(5)]
+            char_tensor = torch.cat((char_embed[0].unsqueeze(1), char_embed[0].unsqueeze(1), char_embed[1].unsqueeze(1),
+                                     char_embed[0].unsqueeze(1), char_embed[0].unsqueeze(1)), dim=1)
+
+            x = torch.cat((word_emb, char_tensor.view(-1, self.char_embedding_dim * self.cnn_window_size)), dim=1)
         else:
             x = self.word_embeddings(windows).view(-1, self.embedding_dim * self.WINDOW_SIZE)
         x = self.fc1(x)
@@ -342,10 +354,10 @@ def parameters_search(params_dict, n_eopchs, train_dataset, dev_dataset, vocab, 
                                      batch_size=config['batch_size'], shuffle=True)
         if mission == 'NER':
             model = tagger(vocab, 50, config['hidden_layer'], len(vocab_labels), config['dropout_p'], pre_trained_emb,
-                           prefix_vocab=pre_vocab, suffix_vocab=suf_vocab, cnn_vocab=cnn_vocab, n_filters=n_filters)
+                           prefix_vocab=pre_vocab, suffix_vocab=suf_vocab, cnn_vocab=cnn_vocab, n_filters=n_filters, char_embedding_dim=20, cnn_window_size=5)
         else:
             model = tagger(vocab_pos, 50, config['hidden_layer'], len(vocab_labels_pos), config['dropout_p'],
-                           pre_trained_emb, prefix_vocab=pre_vocab, suffix_vocab=suf_vocab, cnn_vocab=cnn_vocab, n_filters=n_filters)
+                           pre_trained_emb, prefix_vocab=pre_vocab, suffix_vocab=suf_vocab, cnn_vocab=cnn_vocab, n_filters=n_filters, char_embedding_dim=20, cnn_window_size=5)
         criterion = nn.CrossEntropyLoss()
         if False:
             optimizer = optim.SGD(model.parameters(), lr=config['lr'], momentum=0.9)
@@ -437,16 +449,16 @@ params_dict = {
 # best_params_dict1 = {'hidden_layer': [130], 'dropout_p': [0.3], 'batch_size': [128], 'lr': [1e-4]}
 # best parameters3:
 # {'hidden_layer': 130, 'dropout_p': 0.4, 'batch_size': 64, 'lr': 0.001, 'nepochs': 5}
-best_params_dict3 = {'hidden_layer': [130], 'dropout_p': [0.4], 'batch_size': [64], 'lr': [0.001]}
+best_params_dict = {'hidden_layer': [130], 'dropout_p': [0.4], 'batch_size': [12800], 'lr': [0.0004]}
 print('searching parameters...\n')
-best_tagger = parameters_search(best_params_dict3, 5, train_dataset, dev_dataset, vocab, mission='NER',
+best_tagger = parameters_search(best_params_dict, 5, train_dataset, dev_dataset, vocab, mission='NER',
                                 pre_trained_emb=pre_embedding, pre_vocab=pre_vocab, suf_vocab=suf_vocab,
                                 cnn_vocab=char_vocab, n_filters=30)
 # torch.save(best_tagger['model'], 'cnn_model.pt')
 # model = model = tagger(vocab, 50, best_params_dict['hidden_layer'][0], len(vocab_labels), best_params_dict['dropout_p'][0], pre_embedding,
 #                            prefix_vocab=pre_vocab, suffix_vocab=suf_vocab, cnn_vocab=char_vocab, n_filters=30)
 # model = torch.load('cnn_model.pt')
-# analyze_filters(model)
+analyze_filters(best_tagger['model'], analyze_type='a')
 plot_results(best_tagger['train_losses'], best_tagger['val_losses'], \
              best_tagger['train_accuracy'], best_tagger['val_accuracy'],
              main_title=f'NER_P-{args.pretrained}_S-{args.subword}_C-{args.cnn}')
