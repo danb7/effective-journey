@@ -84,7 +84,7 @@ class tagger(nn.Module):
             char_tensor = torch.cat((char_embed[0].unsqueeze(1), char_embed[0].unsqueeze(1), char_embed[1].unsqueeze(1),
                                      char_embed[0].unsqueeze(1), char_embed[0].unsqueeze(1)), dim=1)
 
-            x = torch.cat((word_emb, char_tensor.view(-1, self.char_embedding_dim * self.cnn_window_size)), dim=1)
+            x = torch.cat((word_emb, char_tensor.view(-1, self.char_embedding_dim * self.WINDOW_SIZE)), dim=1)
         else:
             x = self.word_embeddings(windows).view(-1, self.embedding_dim * self.WINDOW_SIZE)
         x = self.fc1(x)
@@ -346,10 +346,10 @@ def parameters_search(params_dict, n_eopchs, train_dataset, dev_dataset, vocab, 
                                      batch_size=config['batch_size'], shuffle=True)
         if mission == 'NER':
             model = tagger(vocab, 50, config['hidden_layer'], len(vocab_labels), config['dropout_p'], pre_trained_emb,
-                           prefix_vocab=pre_vocab, suffix_vocab=suf_vocab, cnn_vocab=cnn_vocab, n_filters=n_filters, char_embedding_dim=20, cnn_window_size=5)
+                           prefix_vocab=pre_vocab, suffix_vocab=suf_vocab, cnn_vocab=cnn_vocab, n_filters=n_filters, char_embedding_dim=30, cnn_window_size=3)
         else:
             model = tagger(vocab_pos, 50, config['hidden_layer'], len(vocab_labels_pos), config['dropout_p'],
-                           pre_trained_emb, prefix_vocab=pre_vocab, suffix_vocab=suf_vocab, cnn_vocab=cnn_vocab, n_filters=n_filters, char_embedding_dim=20, cnn_window_size=5)
+                           pre_trained_emb, prefix_vocab=pre_vocab, suffix_vocab=suf_vocab, cnn_vocab=cnn_vocab, n_filters=n_filters, char_embedding_dim=30, cnn_window_size=3)
         criterion = nn.CrossEntropyLoss()
         if False:
             optimizer = optim.SGD(model.parameters(), lr=config['lr'], momentum=0.9)
@@ -465,7 +465,7 @@ test_data = read_test_file('ner/test')
 test_dataset = TensorDataset(torch.LongTensor(data_to_window(vocab, vocab_labels, test_data, include_labels=False)))
 test_preds = test_prediction(best_tagger['model'], test_dataset)
 test_preds_labels = [vocab_labels.itos[p.item()] for p in test_preds]
-save_test_file(test_data, test_preds_labels, 'test5.ner', seperator='\t')
+# save_test_file(test_data, test_preds_labels, 'test5.ner', seperator='\t')
 
 print("___________________________________POS__________________________________________________")
 train_data_pos = read_data('pos/train', ' ', lower=args.pretrained)
@@ -508,7 +508,7 @@ best_pos_params_dict = {'hidden_layer': [130], 'dropout_p': [0.2], 'batch_size':
 print('searching parameters...\n')
 best_tagger_pos = parameters_search(best_pos_params_dict, 8, train_dataset_pos, dev_dataset_pos, vocab_pos,
                                     mission='POS', pre_trained_emb=pre_embedding, pre_vocab=pre_vocab_pos,
-                                    suf_vocab=suf_vocab_pos, cnn_vocab=char_vocab_pos, n_filters=30)
+                                    suf_vocab=suf_vocab_pos, cnn_vocab=char_vocab_pos, n_filters=10)
 
 plot_results(best_tagger_pos['train_losses'], best_tagger_pos['val_losses'], \
              best_tagger_pos['train_accuracy'], best_tagger_pos['val_accuracy'],
@@ -521,4 +521,4 @@ test_dataset_pos = TensorDataset(
     torch.LongTensor(data_to_window(vocab_pos, vocab_labels_pos, test_data_pos, include_labels=False)))
 test_preds_pos = test_prediction(best_tagger_pos['model'], test_dataset_pos)
 test_preds_labels_pos = [vocab_labels_pos.itos[p.item()] for p in test_preds_pos]
-save_test_file(test_data_pos, test_preds_labels_pos, 'test5.pos', seperator=' ')
+# save_test_file(test_data_pos, test_preds_labels_pos, 'test5.pos', seperator=' ')
