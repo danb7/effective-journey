@@ -1,6 +1,26 @@
 # second_ex_deep_learning
 Window-based Tagging
 
+CLI usage
+---------
+'''console
+python .\tagger1.py --help
+
+
+usage: tagger1.py [-h] [-p] [-s | -c]
+
+A window-based tagger
+
+optional arguments:
+  -h, --help        show this help message and exit
+  -p, --pretrained  run in pretrained mode
+  -s, --subword     run in subword mode
+  -c, --cnn         run in cnn mode
+
+if no arguments pass: run in default mode. no special embedding method, just A simple        
+window-based tagger
+'''
+
 running part 1
 --------------
 run tagger1.py.
