@@ -445,7 +445,7 @@ params_dict = {
 # {'hidden_layer': 130, 'dropout_p': 0.4, 'batch_size': 128, 'lr': 0.001, 'nepochs': 5/3(p/not p)}
 # best parameters5:
 #
-best_params_dict = {'hidden_layer': [130], 'dropout_p': [0.4], 'batch_size': [128], 'lr': [0.00025]}
+best_params_dict = {'hidden_layer': [130], 'dropout_p': [0.4], 'batch_size': [128], 'lr': [0.0002]}
 print('searching parameters...\n')
 best_tagger = parameters_search(best_params_dict, 6, train_dataset, dev_dataset, vocab, mission='NER',
                                 pre_trained_emb=pre_embedding, pre_vocab=pre_vocab, suf_vocab=suf_vocab,
