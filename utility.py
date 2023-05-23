@@ -36,7 +36,7 @@ def read_test_file(fname):
             sentence = sentence + text + " "
         else:
             sentence = sentence[:-1]
-            sentence_list.append(sentence)
+            sentence_list.append(f'{SOS} {SOS} {sentence} {EOS} {EOS}')
             sentence = ""
 
     return sentence_list
@@ -309,3 +309,33 @@ def get_maxpool2d_layer_shape(layer, in_shape):
         W_out = round_op((W_in + 2*padding[1] - dilation[1] * (kernel_size[1]-1) - 1) / stride[1] + 1)
 
     return (H_out, W_out)
+
+# def most_similiar(word, k):
+#     query_vector = words[word]
+#     similarities = np.zeros(vecs.shape[0])
+#     for i, vector in enumerate(vecs):
+#         similarities[i] = cosine_similarity(query_vector, vector)
+#     indices = np.argsort(similarities)[::-1][1:k + 1]
+#     top_k_similar_vectors = vecs[indices]
+#     return top_k_similar_vectors, indices, similarities[indices]
+
+
+def analyze_filters(cnn_model, analyze_type='top_k'):
+    if analyze_type=='top_k':
+        vecs = cnn_model.cnn.embbeding.weight.data
+        filter_weights = cnn_model.cnn.conv.weight.data.numpy()
+        num_filters = filter_weights.shape[0]
+        for i in range(num_filters):
+            pass
+    else:
+        pass
+        # filter_weights = cnn_model.conv.weight.data.numpy()
+        # num_filters = filter_weights.shape[0]
+        # fig, axs = plt.subplots(nrows=num_filters, ncols=1, figsize=(5, num_filters*2))
+
+        # for i in range(num_filters):
+        #     axs[i].imshow(filter_weights[i, 0, :, :], cmap='gray')
+        #     axs[i].axis('off')
+
+        # plt.tight_layout()
+        # plt.show()
