@@ -392,9 +392,9 @@ def parameters_search(params_dict, n_eopchs, train_dataset, dev_dataset, vocab, 
 print("___________________________________NER__________________________________________________")
 parser = argparse.ArgumentParser(description="NLP tagging task")
 group = parser.add_mutually_exclusive_group()
-parser.add_argument("-p", "--pretrained", action="store_true")
-group.add_argument("-s", "--subword", action="store_true")
-group.add_argument("-c", "--cnn", action="store_true")
+parser.add_argument("-p", "--pretrained", action="store_true", help="run in pretrained mode")
+group.add_argument("-s", "--subword", action="store_true" , help="run in subword mode")
+group.add_argument("-c", "--cnn", action="store_true", help="run in cnn mode")
 args = parser.parse_args()
 
 pre_embedding = None
