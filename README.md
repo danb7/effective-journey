@@ -1,6 +1,14 @@
 # second_ex_deep_learning
 Window-based Tagging
 
+running part 1
+--------------
+run tagger1.py
+
+running part 3
+--------------
+run tagger1.py -p
+
 CLI usage
 ---------
  ```console
@@ -46,12 +54,3 @@ The working directory should contain:
 3) utility.py
 
 output graphs are in the "graphs" directory
-
-running part 1
---------------
-run tagger1.py
-
-running part 3
---------------
-run tagger1.py -p
-
