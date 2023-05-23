@@ -50,7 +50,7 @@ class tagger(nn.Module):
             self.suffix_embeddings = nn.Embedding(len(self.suffix_vocab), embedding_dim)
         elif cnn_vocab:
             self.char_longest = len(max(self.vocab.stoi.keys(), key=len))
-            self.cnn2 = CNN(cnn_vocab, n_filters, char_embedding_dim, self.char_longest, cnn_window_size)
+            self.cnn = CNN(cnn_vocab, n_filters, char_embedding_dim, self.char_longest, cnn_window_size)
             self.fc1_in_dim = (self.embedding_dim + self.char_embedding_dim) * WINDOW_SIZE
         self.fc1 = nn.Linear(self.fc1_in_dim, hidden_layer)
         self.fc2 = nn.Linear(hidden_layer, target_size)
@@ -80,7 +80,7 @@ class tagger(nn.Module):
         elif self.cnn_vocab:
             word_emb = self.word_embeddings(windows).view(-1, self.embedding_dim * self.WINDOW_SIZE)
             chars = self._get_chars(windows, self.char_longest)
-            char_embed = [self.cnn2(chars[:, word_i, :]) for word_i in range(5)]
+            char_embed = [self.cnn(chars[:, word_i, :]) for word_i in range(5)]
             char_tensor = torch.cat((char_embed[0].unsqueeze(1), char_embed[0].unsqueeze(1), char_embed[1].unsqueeze(1),
                                      char_embed[0].unsqueeze(1), char_embed[0].unsqueeze(1)), dim=1)
 
@@ -423,7 +423,7 @@ if args.subword:
     print('using subword embedding\n')
     pre_vocab, suf_vocab = create_pre_suf_vocabs(vocab)
 
-if args.cnn:
+if True:#args.cnn:
     print('using character embedding\n')
     char_vocab = create_cnn_vocabs(vocab)
 
@@ -436,6 +436,9 @@ params_dict = {
     'batch_size': [128, 64],
     'lr': [1e-4,1e-3]
 }
+
+model = tagger(vocab, 50, 130, len(vocab_labels), 0.5, pre_embedding,
+                           prefix_vocab=pre_vocab, suffix_vocab=suf_vocab, cnn_vocab=char_vocab, n_filters=30)
 # best parameters1:
 # {'hidden_layer': 130, 'dropout_p': 0.3, 'batch_size': 128, 'lr': 0.0001, 'nepochs': 6}
 # best_params_dict1 = {'hidden_layer': [130], 'dropout_p': [0.3], 'batch_size': [128], 'lr': [1e-4]}

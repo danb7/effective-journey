@@ -222,23 +222,27 @@ def check_if_a_number(word, vocab):
         return "NNNUMMM"
     return None
 
-# def most_similiar(word, k):
-#     query_vector = words[word]
-#     similarities = np.zeros(vecs.shape[0])
-#     for i, vector in enumerate(vecs):
-#         similarities[i] = cosine_similarity(query_vector, vector)
-#     indices = np.argsort(similarities)[::-1][1:k + 1]
-#     top_k_similar_vectors = vecs[indices]
-#     return top_k_similar_vectors, indices, similarities[indices]
+import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
+
+def get_top_k_vectors(embedding, target_vector, k):
+    # Compute cosine similarities between the target vector and all other vectors in the embedding
+    similarities = cosine_similarity(embedding, target_vector.reshape(1, -1))
+    # Sort the cosine similarities in descending order
+    sorted_indices = np.argsort(similarities, axis=0)[::-1]
+    # Select the top k vectors based on the highest cosine similarities
+    top_k_vectors = embedding[sorted_indices[:k].flatten()]
+    return top_k_vectors
 
 
-def analyze_filters(cnn_model, analyze_type='top_k'):
-    if analyze_type=='top_k':
+def analyze_filters(cnn_model, top_k=None):
+    if top_k:
         vecs = cnn_model.cnn.embbeding.weight.data
         filter_weights = cnn_model.cnn.conv.weight.data.numpy()
         num_filters = filter_weights.shape[0]
         for i in range(num_filters):
-            pass
+            compare_vecs = 3 
+            top_k_vecs = get_top_k_vectors(vecs, filter_weights[i],top_k)
     else:
         filter_weights = cnn_model.conv.weight.data.numpy()
         num_filters = filter_weights.shape[0]

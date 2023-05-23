@@ -1,6 +1,9 @@
 # second_ex_deep_learning
 Window-based Tagging
 
+Peleg shefi and Daniel bazar
+316523638 314708181
+
 running part 1
 --------------
 run tagger1.py
