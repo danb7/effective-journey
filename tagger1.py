@@ -437,9 +437,9 @@ params_dict = {
 # best_params_dict1 = {'hidden_layer': [130], 'dropout_p': [0.3], 'batch_size': [128], 'lr': [1e-4]}
 # best parameters3:
 # {'hidden_layer': 130, 'dropout_p': 0.4, 'batch_size': 64, 'lr': 0.001, 'nepochs': 5}
-best_params_dict3 = {'hidden_layer': [130], 'dropout_p': [0.4], 'batch_size': [128], 'lr': [0.0004]}
+best_params_dict3 = {'hidden_layer': [130], 'dropout_p': [0.4], 'batch_size': [64], 'lr': [0.001]}
 print('searching parameters...\n')
-best_tagger = parameters_search(best_params_dict3, 10, train_dataset, dev_dataset, vocab, mission='NER',
+best_tagger = parameters_search(best_params_dict3, 5, train_dataset, dev_dataset, vocab, mission='NER',
                                 pre_trained_emb=pre_embedding, pre_vocab=pre_vocab, suf_vocab=suf_vocab,
                                 cnn_vocab=char_vocab, n_filters=30)
 # torch.save(best_tagger['model'], 'cnn_model.pt')
@@ -492,8 +492,8 @@ pos_params_dict = {  # for debuging i used only one item per and very big batch
 # {'hidden_layer': 90, 'dropout_p': 0.2, 'batch_size': 64, 'lr': 5e-05, 'nepochs': 8}
 best_pos_params_dict1 = {'hidden_layer': [90], 'dropout_p': [0.2], 'batch_size': [64], 'lr': [5e-05]}
 # best parameters: 
-# {'hidden_layer': 130, 'dropout_p': 0.2, 'batch_size': 64, 'lr': 0.0001}
-best_pos_params_dict3 = {'hidden_layer': [130], 'dropout_p': [0.2], 'batch_size': [64], 'lr': [0.0001]}
+# {'hidden_layer': 130, 'dropout_p': 0.2, 'batch_size': 2048, 'lr': 0.001}
+best_pos_params_dict3 = {'hidden_layer': [130], 'dropout_p': [0.2], 'batch_size': [2048], 'lr': [0.001]}
 print('searching parameters...\n')
 best_tagger_pos = parameters_search(best_pos_params_dict3, 8, train_dataset_pos, dev_dataset_pos, vocab_pos,
                                     mission='POS', pre_trained_emb=pre_embedding, pre_vocab=pre_vocab_pos,
